@@ -2,6 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Users, Target, Heart, Award, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ContentAd } from "@/components/common/AdBanner";
 
 const values = [
   {
@@ -139,6 +140,15 @@ const AboutPage = () => {
                 <p className="text-muted-foreground text-sm">{value.description}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Ad Section */}
+      <section className="py-8 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-center">
+            <ContentAd />
           </div>
         </div>
       </section>

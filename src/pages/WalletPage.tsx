@@ -5,6 +5,7 @@ import { BalanceCard } from "@/components/ui/BalanceCard";
 import { StatusTag } from "@/components/ui/StatusTag";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { ContentAd, StickyFooterAd } from "@/components/common/AdBanner";
 
 const transactions = [
   {
@@ -134,7 +135,15 @@ const WalletPage = () => {
         </button>
       </div>
 
+      {/* Ad Section */}
+      <div className="px-4 py-4">
+        <div className="flex justify-center">
+          <ContentAd />
+        </div>
+      </div>
+
       <BottomNav />
+      <StickyFooterAd />
     </div>
   );
 };

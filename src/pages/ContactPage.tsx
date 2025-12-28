@@ -4,6 +4,7 @@ import { ArrowLeft, Mail, MapPin, Phone, Send, MessageCircle } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { CustomInput } from "@/components/ui/CustomInput";
 import { toast } from "sonner";
+import { ContentAd } from "@/components/common/AdBanner";
 
 const contactInfo = [
   {
@@ -172,6 +173,15 @@ const ContactPage = () => {
                 </Button>
               </form>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Ad Section */}
+      <section className="py-8 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-center">
+            <ContentAd />
           </div>
         </div>
       </section>

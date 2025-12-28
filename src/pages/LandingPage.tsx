@@ -1,10 +1,11 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { 
-  ArrowRight, CheckCircle2, TrendingUp, Users, Wallet, 
-  Shield, Zap, Star, ChevronRight, Menu, X 
+import {
+  ArrowRight, CheckCircle2, TrendingUp, Users, Wallet,
+  Shield, Zap, Star, ChevronRight, Menu, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ContentAd } from "@/components/common/AdBanner";
 
 const stats = [
   { value: "₦50M+", label: "Paid to Affiliates" },
@@ -261,6 +262,15 @@ const LandingPage = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Ad Section - Peaceful placement */}
+      <section className="py-8 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-center">
+            <ContentAd />
           </div>
         </div>
       </section>

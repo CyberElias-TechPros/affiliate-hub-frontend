@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { TrendingUp, Eye, ShoppingCart, Target, ChevronRight, Zap } from "lucide-react";
 import { BalanceCard } from "@/components/ui/BalanceCard";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { ContentAd, StickyFooterAd, NativeAd } from "@/components/common/AdBanner";
+import { useAdManager } from "@/contexts/AdManagerContext";
 
 const statsCards = [
   { label: "Total Clicks", value: "2,847", change: "+12%", icon: Eye, color: "primary" },
@@ -28,7 +30,15 @@ const weeklyData = [
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+  const { currentVariant, showInterstitial } = useAdManager();
   const maxClicks = Math.max(...weeklyData.map((d) => d.clicks));
+
+  // Trigger app open interstitial (A/B tested)
+  React.useEffect(() => {
+    if (currentVariant === 'A') {
+      showInterstitial('app_open');
+    }
+  }, [currentVariant, showInterstitial]);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -80,6 +90,11 @@ const DashboardPage = () => {
           ))}
         </div>
       </div>
+
+      {/* Native Ad - A/B Tested */}
+      {currentVariant === 'B' && (
+        <NativeAd />
+      )}
 
       {/* Weekly Performance Chart */}
       <div className="px-4 py-4">
@@ -137,6 +152,13 @@ const DashboardPage = () => {
         </div>
       </div>
 
+      {/* Ad Section */}
+      <div className="px-4 py-4">
+        <div className="flex justify-center">
+          <ContentAd />
+        </div>
+      </div>
+
       {/* Quick Action */}
       <div className="px-4 py-4">
         <button
@@ -157,6 +179,7 @@ const DashboardPage = () => {
       </div>
 
       <BottomNav />
+      <StickyFooterAd />
     </div>
   );
 };

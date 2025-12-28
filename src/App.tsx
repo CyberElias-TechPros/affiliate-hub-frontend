@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AdManagerProvider, useAdManager } from "@/contexts/AdManagerContext";
+import { InterstitialAd } from "@/components/common/AdBanner";
 import LandingPage from "./pages/LandingPage";
 import AboutPage from "./pages/AboutPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
@@ -23,8 +25,10 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const AppContent = () => {
+  const { interstitialOpen, closeInterstitial } = useAdManager();
+
+  return (
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -37,11 +41,11 @@ const App = () => (
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
-          
+
           {/* Auth */}
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
-          
+
           {/* App Pages */}
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
@@ -51,11 +55,22 @@ const App = () => (
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/help" element={<HelpPage />} />
-          
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+
+      {/* Global Interstitial Ad */}
+      <InterstitialAd isOpen={interstitialOpen} onClose={closeInterstitial} />
     </TooltipProvider>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AdManagerProvider>
+      <AppContent />
+    </AdManagerProvider>
   </QueryClientProvider>
 );
 

@@ -4,6 +4,7 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { ProductCard } from "@/components/ui/ProductCard";
 import { CategoryChip } from "@/components/ui/CategoryChip";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { ContentAd, StickyFooterAd } from "@/components/common/AdBanner";
 
 const categories = [
   { id: "all", label: "All Products" },
@@ -143,7 +144,15 @@ const MarketplacePage = () => {
         ))}
       </div>
 
+      {/* Ad Section */}
+      <div className="px-4 py-4">
+        <div className="flex justify-center">
+          <ContentAd />
+        </div>
+      </div>
+
       <BottomNav />
+      <StickyFooterAd />
     </div>
   );
 };

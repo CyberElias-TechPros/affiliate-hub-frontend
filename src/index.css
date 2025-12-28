@@ -187,3 +187,113 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/40;
 }
+
+/* AdSense Ads Styling */
+.ad-container {
+  position: relative;
+  background: transparent;
+  border: none;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 90px;
+}
+
+
+.ad-container ins {
+  display: block !important;
+  width: 100% !important;
+  min-height: inherit !important;
+}
+
+
+/* Responsive ad sizing */
+@media (max-width: 640px) {
+  .ad-container {
+    margin: 0.5rem 0;
+  }
+}
+
+@media (min-width: 641px) {
+  .ad-container {
+    margin: 1rem 0;
+  }
+}
+
+/* Hide ads on very small screens */
+@media (max-width: 320px) {
+  .ad-container {
+    display: none;
+  }
+}
+
+/* Sticky Footer Ad Styles */
+.sticky-footer-ad {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: hsl(var(--background) / 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid hsl(var(--border));
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60px;
+  safe-area-inset-bottom: env(safe-area-inset-bottom);
+}
+
+/* Interstitial Ad Styles */
+.interstitial-ad {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: hsl(0 0% 0% / 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.interstitial-ad .ad-content {
+  background: hsl(var(--card));
+  border-radius: 1rem;
+  padding: 1.5rem;
+  max-width: 28rem;
+  width: 100%;
+  box-shadow: 0 20px 25px -5px hsl(0 0% 0% / 0.1), 0 10px 10px -5px hsl(0 0% 0% / 0.04);
+  position: relative;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .sticky-footer-ad {
+    padding: 0.5rem;
+  }
+
+  .interstitial-ad .ad-content {
+    margin: 1rem;
+    padding: 1rem;
+  }
+}
+
+/* Animation for ad appearance */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ad-fade-in {
+  animation: fadeInUp 0.3s ease-out;
+}
