@@ -3,32 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Heart, Share2, Check, Copy, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-
-const productData = {
-  id: "1",
-  title: "Premium Forex Trading Course - Complete Bundle",
-  price: 150000,
-  commission: 45,
-  commissionAmount: 67500,
-  category: "Digital",
-  description: "Learn forex trading from zero to pro with this comprehensive course that covers technical analysis, risk management, and proven trading strategies.",
-  images: [
-    "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
-    "https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=800&h=600&fit=crop",
-    "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800&h=600&fit=crop",
-  ],
-  whyPromote: [
-    "High conversion rate of 12%",
-    "30-day cookie duration",
-    "Recurring commissions on upsells",
-    "Professional marketing materials",
-    "Dedicated affiliate support",
-  ],
-  promoAssets: [
-    "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400&h=400&fit=crop",
-    "https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=400&h=400&fit=crop",
-  ],
-};
+import { ProductAPI } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 
 const ProductDetailPage = () => {
   const navigate = useNavigate();
@@ -37,6 +13,14 @@ const ProductDetailPage = () => {
   const [isSaved, setIsSaved] = React.useState(false);
   const [linkCopied, setLinkCopied] = React.useState(false);
   const [showToolkit, setShowToolkit] = React.useState(false);
+
+  // Fetch product data from API
+  const { data: productData, isLoading, error } = useQuery({
+    queryKey: ['product', id],
+    queryFn: () => ProductAPI.getProductDetail(id || ''),
+    select: (response) => response.data,
+    enabled: !!id,
+  });
 
   const affiliateLink = `https://affiliatehub.ng/ref/user123/${id}`;
 
@@ -51,6 +35,85 @@ const ProductDetailPage = () => {
     const message = encodeURIComponent(`Check out this amazing product! ${affiliateLink}`);
     window.open(`https://wa.me/?text=${message}`, "_blank");
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 rounded-full hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        <div className="px-4 py-6 space-y-6">
+          <div className="animate-pulse">
+            <div className="aspect-[4/3] overflow-hidden bg-muted rounded-xl animate-shimmer" />
+            <div className="mt-4 space-y-2">
+              <div className="h-6 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+              <div className="h-8 bg-muted rounded w-1/3" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 rounded-full hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        <div className="px-4 py-6">
+          <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-center">
+            <p className="text-destructive font-medium">Failed to load product</p>
+            <p className="text-muted-foreground text-sm mt-1">Please try again later</p>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              className="mt-4"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!productData) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 rounded-full hover:bg-muted transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        <div className="px-4 py-6">
+          <div className="bg-muted/50 border border-border/20 rounded-xl p-4 text-center">
+            <p className="text-muted-foreground">Product not found</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

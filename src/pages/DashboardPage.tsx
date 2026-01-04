@@ -18,6 +18,12 @@ const topProducts = [
   { id: "3", name: "Business Masterclass", sales: 28, earnings: 126000 },
 ];
 
+const topAffiliates = [
+  { name: "Adebayo T.", earnings: 450000, rank: 1 },
+  { name: "Ngozi O.", earnings: 380000, rank: 2 },
+  { name: "Chinedu M.", earnings: 320000, rank: 3 },
+];
+
 const weeklyData = [
   { day: "Mon", clicks: 120 },
   { day: "Tue", clicks: 180 },
@@ -149,6 +155,60 @@ const DashboardPage = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Leaderboard */}
+      <div className="px-4 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-foreground">Top Affiliates</h2>
+          <button className="text-sm text-primary font-medium flex items-center">
+            View all <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="bg-card rounded-xl p-4 shadow-card">
+          <div className="space-y-3">
+            {topAffiliates.map((affiliate, index) => (
+              <div
+                key={affiliate.rank}
+                className="flex items-center gap-3"
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  affiliate.rank === 1 ? "gradient-gold text-accent-foreground" :
+                  affiliate.rank === 2 ? "bg-muted text-muted-foreground" :
+                  "bg-muted text-muted-foreground"
+                }`}>
+                  {affiliate.rank}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">{affiliate.name}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-success">₦{affiliate.earnings.toLocaleString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Goal Tracker */}
+      <div className="px-4 py-4">
+        <div className="bg-card rounded-xl p-4 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-foreground">Monthly Goal</h2>
+            <span className="text-sm text-muted-foreground">₦500,000</span>
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Progress</span>
+              <span className="font-medium text-foreground">₦472,500 / ₦500,000</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2">
+              <div className="gradient-primary h-2 rounded-full" style={{ width: "94.5%" }}></div>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">27,500 to go!</p>
+          </div>
         </div>
       </div>
 
