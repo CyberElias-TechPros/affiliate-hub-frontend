@@ -1,10 +1,18 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Heart, Share2, Check, Copy, Download, ExternalLink } from "lucide-react";
+import { ArrowLeft, Heart, Share2, Check, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ProductAPI } from "@/lib/api";
+import { ProductAPI, AffiliateAPI, getApiError } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
+import type { ProductDetail } from "@/lib/types";
+
+// Normalize the backend's single image_url into the images[] array the UI expects.
+function normalizeProduct(raw: Omit<ProductDetail, "images"> & { image_url?: string }): ProductDetail {
+  const promoAssets = raw.promoAssets?.length ? raw.promoAssets : raw.image_url ? [raw.image_url] : [];
+  const images = raw.image_url ? [raw.image_url, ...promoAssets] : promoAssets.length ? promoAssets : [];
+  return { ...raw, images: images.length ? images : [], promoAssets };
+}
 
 const ProductDetailPage = () => {
   const navigate = useNavigate();
@@ -12,28 +20,94 @@ const ProductDetailPage = () => {
   const [currentImage, setCurrentImage] = React.useState(0);
   const [isSaved, setIsSaved] = React.useState(false);
   const [linkCopied, setLinkCopied] = React.useState(false);
-  const [showToolkit, setShowToolkit] = React.useState(false);
+  const [affiliateLink, setAffiliateLink] = React.useState<string | null>(null);
+  const [linkLoading, setLinkLoading] = React.useState(false);
 
   // Fetch product data from API
   const { data: productData, isLoading, error } = useQuery({
     queryKey: ['product', id],
-    queryFn: () => ProductAPI.getProductDetail(id || ''),
-    select: (response) => response.data,
+    queryFn: async () => normalizeProduct((await ProductAPI.getProductDetail(id || '')).data),
     enabled: !!id,
   });
 
-  const affiliateLink = `https://affiliatehub.ng/ref/user123/${id}`;
+  // Persist saved state across visits
+  React.useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("affiliate_saved") || "[]") as string[];
+      setIsSaved(saved.includes(String(id)));
+    } catch {
+      /* ignore */
+    }
+  }, [id]);
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(affiliateLink);
-    setLinkCopied(true);
-    toast.success("Link copied to clipboard!");
-    setTimeout(() => setLinkCopied(false), 2000);
+  const toggleSave = () => {
+    setIsSaved((prev) => {
+      const next = !prev;
+      try {
+        const saved = JSON.parse(localStorage.getItem("affiliate_saved") || "[]") as string[];
+        const updated = next
+          ? Array.from(new Set([...saved, String(id)]))
+          : saved.filter((p) => p !== String(id));
+        localStorage.setItem("affiliate_saved", JSON.stringify(updated));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
+  // Generate a real, trackable affiliate link for this product.
+  const ensureLink = async () => {
+    if (affiliateLink || linkLoading || !id) return;
+    setLinkLoading(true);
+    try {
+      const res = await AffiliateAPI.generateLink(id);
+      setAffiliateLink(res.data.affiliateLink || res.data.linkCode || null);
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (id) ensureLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const linkToUse = affiliateLink || (id ? `${window.location.origin}/product/${id}` : "");
+
+  const handleCopyLink = async () => {
+    await ensureLink();
+    const link = affiliateLink || linkToUse;
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy the link. Please copy it manually.");
+    }
   };
 
   const handleShareWhatsApp = () => {
-    const message = encodeURIComponent(`Check out this amazing product! ${affiliateLink}`);
+    const message = encodeURIComponent(
+      `Check out this amazing product! ${linkToUse}`
+    );
     window.open(`https://wa.me/?text=${message}`, "_blank");
+  };
+
+  const handleDownloadAsset = (url: string, index: number) => {
+    // Trigger a browser download of the promo image.
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `promo-${productData?.id ?? "product"}-${index + 1}.jpg`;
+    a.target = "_blank";
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast.success("Downloading promo material...");
   };
 
   if (isLoading) {
@@ -128,7 +202,7 @@ const ProductDetailPage = () => {
           </button>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setIsSaved(!isSaved)}
+              onClick={toggleSave}
               className={`p-2 rounded-full transition-colors ${
                 isSaved ? "bg-destructive/10 text-destructive" : "hover:bg-muted"
               }`}
@@ -219,7 +293,7 @@ const ProductDetailPage = () => {
             <label className="text-sm text-muted-foreground mb-2 block">Your unique link</label>
             <div className="flex gap-2">
               <div className="flex-1 px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground truncate">
-                {affiliateLink}
+                {linkLoading ? "Generating your link..." : linkToUse}
               </div>
               <Button
                 onClick={handleCopyLink}
@@ -251,7 +325,10 @@ const ProductDetailPage = () => {
               {productData.promoAssets.map((asset, index) => (
                 <div key={index} className="relative aspect-square rounded-lg overflow-hidden group">
                   <img src={asset} alt={`Promo ${index + 1}`} className="w-full h-full object-cover" />
-                  <button className="absolute inset-0 bg-foreground/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <button
+                    onClick={() => handleDownloadAsset(asset, index)}
+                    className="absolute inset-0 bg-foreground/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                  >
                     <Download className="h-5 w-5 text-background" />
                   </button>
                 </div>

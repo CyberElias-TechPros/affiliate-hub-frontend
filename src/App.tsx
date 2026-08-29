@@ -4,6 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdManagerProvider, useAdManager } from "@/contexts/AdManagerContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { InterstitialAd } from "@/components/common/AdBanner";
 import LandingPage from "./pages/LandingPage";
 import AboutPage from "./pages/AboutPage";
@@ -44,17 +47,80 @@ const AppContent = () => {
 
           {/* Auth */}
           <Route path="/auth" element={<AuthPage />} />
-          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
 
-          {/* App Pages */}
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/marketplace" element={<MarketplacePage />} />
-          <Route path="/product/:id" element={<ProductDetailPage />} />
-          <Route path="/wallet" element={<WalletPage />} />
-          <Route path="/withdraw" element={<WithdrawPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/help" element={<HelpPage />} />
+          {/* Protected App Pages */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/marketplace"
+            element={
+              <ProtectedRoute>
+                <MarketplacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/product/:id"
+            element={
+              <ProtectedRoute>
+                <ProductDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wallet"
+            element={
+              <ProtectedRoute>
+                <WalletPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/withdraw"
+            element={
+              <ProtectedRoute>
+                <WithdrawPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <ProtectedRoute>
+                <StatsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ProtectedRoute>
+                <HelpPage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
@@ -67,11 +133,15 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AdManagerProvider>
-      <AppContent />
-    </AdManagerProvider>
-  </QueryClientProvider>
+  <ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AdManagerProvider>
+          <AppContent />
+        </AdManagerProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

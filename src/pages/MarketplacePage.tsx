@@ -10,13 +10,12 @@ import { Button } from "@/components/ui/button";
 import { ProductAPI } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 
-const categories = [
+// Special category chips are always available; real product categories are
+// merged in dynamically from the API so filtering matches actual data.
+const specialCategories = [
   { id: "all", label: "All Products" },
   { id: "high", label: "🔥 High Commission" },
   { id: "new", label: "✨ New" },
-  { id: "digital", label: "Digital" },
-  { id: "physical", label: "Physical" },
-  { id: "services", label: "Services" },
 ];
 
 const sortOptions = [
@@ -27,40 +26,79 @@ const sortOptions = [
   { id: "newest", label: "Newest First" },
 ];
 
-
 const MarketplacePage = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [activeCategory, setActiveCategory] = React.useState("all");
-  const [savedProducts, setSavedProducts] = React.useState<string[]>([]);
+  const [savedProducts, setSavedProducts] = React.useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("affiliate_saved") || "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
   const [sortBy, setSortBy] = React.useState("default");
   const [isSortOpen, setIsSortOpen] = React.useState(false);
 
-  // Fetch products from API
+  // Fetch all products (filtering/search/sort handled client-side so that the
+  // special "High Commission"/"New" filters work against real data).
   const { data: products = [], isLoading, error } = useQuery({
-    queryKey: ['products', activeCategory, sortBy],
-    queryFn: () => ProductAPI.getProducts({ category: activeCategory === 'all' ? undefined : activeCategory }),
+    queryKey: ['products'],
+    queryFn: () => ProductAPI.getProducts(),
     select: (response) => response.data,
   });
 
+  // Fetch real categories from the backend for accurate filtering.
+  const { data: apiCategories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => ProductAPI.getCategories(),
+    select: (response) => response.data,
+    staleTime: Infinity,
+  });
+
+  const categories = React.useMemo(() => {
+    const real = apiCategories
+      .filter((c) => c && c.toLowerCase() !== 'all')
+      .map((c) => ({ id: c.toLowerCase(), label: c }));
+    return [...specialCategories, ...real];
+  }, [apiCategories]);
+
   const handleSaveProduct = (id: string) => {
-    setSavedProducts((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-    );
+    setSavedProducts((prev) => {
+      const next = prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id];
+      localStorage.setItem("affiliate_saved", JSON.stringify(next));
+      return next;
+    });
   };
 
-  const getSortedProducts = () => {
+  const getFilteredProducts = () => {
     let filtered = products;
+
+    // Text search across title/description/category
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(
+        (p) =>
+          p.title?.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q)
+      );
+    }
 
     // Filter by category
     if (activeCategory !== "all") {
       if (activeCategory === "high") {
-        filtered = filtered.filter(p => p.commission >= 40);
+        filtered = filtered.filter((p) => p.commission >= 40);
       } else if (activeCategory === "new") {
-        // For demo, assume first 2 are new
-        filtered = filtered.slice(0, 2);
+        filtered = [...filtered].sort((a, b) => {
+          const tA = a.created_at ? new Date(a.created_at).getTime() : a.id || 0;
+          const tB = b.created_at ? new Date(b.created_at).getTime() : b.id || 0;
+          return tB - tA;
+        }).slice(0, 3);
       } else {
-        filtered = filtered.filter(p => p.category?.toLowerCase() === activeCategory);
+        filtered = filtered.filter(
+          (p) => p.category?.toLowerCase() === activeCategory.toLowerCase()
+        );
       }
     }
 
@@ -73,13 +111,17 @@ const MarketplacePage = () => {
       case "commission":
         return [...filtered].sort((a, b) => b.commission - a.commission);
       case "newest":
-        return [...filtered].reverse(); // Simple reverse for demo
+        return [...filtered].sort((a, b) => {
+          const tA = a.created_at ? new Date(a.created_at).getTime() : a.id || 0;
+          const tB = b.created_at ? new Date(b.created_at).getTime() : b.id || 0;
+          return tB - tA;
+        });
       default:
         return filtered;
     }
   };
 
-  const sortedProducts = getSortedProducts();
+  const sortedProducts = getFilteredProducts();
 
   if (isLoading) {
     return (
@@ -210,20 +252,45 @@ const MarketplacePage = () => {
 
       {/* Products Grid */}
       <div className="px-4 py-4 space-y-3">
-        {sortedProducts.map((product, index) => (
-          <div
-            key={product.id}
-            className="animate-fade-up"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <ProductCard
-              {...product}
-              isSaved={savedProducts.includes(product.id)}
-              onSave={handleSaveProduct}
-              onClick={() => navigate(`/product/${product.id}`)}
-            />
+        {sortedProducts.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-4xl mb-3">🔍</div>
+            <p className="font-medium text-foreground">No products found</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Try a different search or category.
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setSearchQuery("");
+                setActiveCategory("all");
+              }}
+            >
+              Clear filters
+            </Button>
           </div>
-        ))}
+        ) : (
+          sortedProducts.map((product, index) => (
+            <div
+              key={product.id}
+              className="animate-fade-up"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <ProductCard
+                id={String(product.id)}
+                title={product.title}
+                price={product.price}
+                commission={product.commission}
+                image={product.image_url}
+                category={product.category}
+                isSaved={savedProducts.includes(String(product.id))}
+                onSave={handleSaveProduct}
+                onClick={() => navigate(`/product/${product.id}`)}
+              />
+            </div>
+          ))
+        )}
       </div>
 
       {/* Ad Section */}

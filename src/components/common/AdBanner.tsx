@@ -10,8 +10,8 @@ interface AdBannerProps {
 
 declare global {
   interface Window {
-    adsbygoogle: any[];
-    gtag: (...args: any[]) => void;
+    adsbygoogle: Array<Record<string, unknown>>;
+    gtag: (...args: unknown[]) => void;
   }
 }
 
@@ -121,8 +121,9 @@ export const MobileAd: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 export const StickyFooterAd: React.FC = () => (
-  <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border safe-bottom">
-    <div className="flex justify-center py-2">
+  // Positioned above the bottom navigation bar (64px) so the ad and nav don't overlap.
+  <div className="fixed bottom-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border safe-bottom">
+    <div className="flex justify-center py-1.5">
       <AdBanner style="banner" position="bottom" adSlot="7966964742" className="max-w-md" />
     </div>
   </div>

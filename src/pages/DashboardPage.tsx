@@ -5,12 +5,10 @@ import { BalanceCard } from "@/components/ui/BalanceCard";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ContentAd, StickyFooterAd, NativeAd } from "@/components/common/AdBanner";
 import { useAdManager } from "@/contexts/AdManagerContext";
-
-const statsCards = [
-  { label: "Total Clicks", value: "2,847", change: "+12%", icon: Eye, color: "primary" },
-  { label: "Conversions", value: "156", change: "+8%", icon: ShoppingCart, color: "success" },
-  { label: "Conv. Rate", value: "5.4%", change: "+2.1%", icon: Target, color: "accent" },
-];
+import { useAuth } from "@/contexts/AuthContext";
+import { StatsAPI, WalletAPI } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const topProducts = [
   { id: "1", name: "Forex Trading Course", sales: 45, earnings: 202500 },
@@ -37,7 +35,51 @@ const weeklyData = [
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { currentVariant, showInterstitial } = useAdManager();
+  const { user } = useAuth();
   const maxClicks = Math.max(...weeklyData.map((d) => d.clicks));
+
+  // Live performance stats
+  const { data: stats } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: () => StatsAPI.getDashboardStats(),
+    select: (r) => r.data,
+  });
+
+  // Live wallet balance
+  const { data: balance } = useQuery({
+    queryKey: ['wallet-balance'],
+    queryFn: () => WalletAPI.getBalance(),
+    select: (r) => r.data,
+  });
+
+  const ngnBalance = balance?.ngnBalance ?? 0;
+  const usdBalance = balance?.usdBalance ?? 0;
+
+  const statsCards = [
+    {
+      label: "Total Clicks",
+      value: stats?.totalClicks != null ? stats.totalClicks.toLocaleString() : "—",
+      change: "",
+      icon: Eye,
+      color: "primary",
+    },
+    {
+      label: "Conversions",
+      value: stats?.totalConversions != null ? stats.totalConversions.toLocaleString() : "—",
+      change: "",
+      icon: ShoppingCart,
+      color: "success",
+    },
+    {
+      label: "Conv. Rate",
+      value: stats?.conversionRate != null ? `${stats.conversionRate}%` : "—",
+      change: "",
+      icon: Target,
+      color: "accent",
+    },
+  ];
+
+  const firstName = user?.name?.split(" ")[0] || "Affiliate";
 
   // Trigger app open interstitial (A/B tested)
   React.useEffect(() => {
@@ -53,7 +95,7 @@ const DashboardPage = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-muted-foreground text-sm">Welcome back,</p>
-            <h1 className="text-xl font-bold font-display text-foreground">Chinedu 👋</h1>
+            <h1 className="text-xl font-bold font-display text-foreground">{firstName} 👋</h1>
           </div>
           <button className="relative p-2 rounded-full bg-card shadow-sm">
             <Zap className="h-5 w-5 text-accent" />
@@ -66,10 +108,10 @@ const DashboardPage = () => {
         {/* Balance Cards */}
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           <div className="min-w-[280px]">
-            <BalanceCard currency="NGN" balance={472500} trend={12} isActive />
+            <BalanceCard currency="NGN" balance={ngnBalance} trend={12} isActive />
           </div>
           <div className="min-w-[280px]">
-            <BalanceCard currency="USD" balance={315} trend={8} />
+            <BalanceCard currency="USD" balance={usdBalance} trend={8} />
           </div>
         </div>
       </div>
@@ -202,12 +244,21 @@ const DashboardPage = () => {
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium text-foreground">₦472,500 / ₦500,000</span>
+              <span className="font-medium text-foreground">
+                ₦{ngnBalance.toLocaleString()} / ₦500,000
+              </span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
-              <div className="gradient-primary h-2 rounded-full" style={{ width: "94.5%" }}></div>
+              <div
+                className="gradient-primary h-2 rounded-full"
+                style={{ width: `${Math.min(100, (ngnBalance / 500000) * 100)}%` }}
+              ></div>
             </div>
-            <p className="text-xs text-muted-foreground text-center">27,500 to go!</p>
+            <p className="text-xs text-muted-foreground text-center">
+              {ngnBalance >= 500000
+                ? "Goal reached! 🎉"
+                : `${(500000 - ngnBalance).toLocaleString()} to go!`}
+            </p>
           </div>
         </div>
       </div>

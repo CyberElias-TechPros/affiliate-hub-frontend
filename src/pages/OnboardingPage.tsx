@@ -4,6 +4,9 @@ import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomInput } from "@/components/ui/CustomInput";
 import { CountryDropdown } from "@/components/ui/CountryDropdown";
+import { useAuth } from "@/contexts/AuthContext";
+import { ProfileAPI, getApiError } from "@/lib/api";
+import { toast } from "sonner";
 
 const niches = [
   { id: "tech", label: "Technology", emoji: "💻" },
@@ -16,10 +19,12 @@ const niches = [
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
+  const { user, setUser } = useAuth();
   const [step, setStep] = React.useState(1);
-  const [country, setCountry] = React.useState("NG");
+  const [country, setCountry] = React.useState(user?.country || "NG");
   const [selectedNiches, setSelectedNiches] = React.useState<string[]>([]);
-  const [whatsapp, setWhatsapp] = React.useState("");
+  const [whatsapp, setWhatsapp] = React.useState(user?.whatsapp || "");
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const toggleNiche = (id: string) => {
     setSelectedNiches((prev) =>
@@ -27,8 +32,24 @@ const OnboardingPage = () => {
     );
   };
 
-  const handleComplete = () => {
-    navigate("/dashboard");
+  const handleComplete = async () => {
+    setIsSaving(true);
+    try {
+      // Persist onboarding choices to the backend (and cache niches locally).
+      await ProfileAPI.updateProfile({ country, whatsapp: whatsapp || null });
+      localStorage.setItem("affiliate_niches", JSON.stringify(selectedNiches));
+      if (user) {
+        setUser({ ...user, country, whatsapp: whatsapp || null });
+      }
+      toast.success("Profile setup complete!");
+      navigate("/dashboard");
+    } catch (err) {
+      toast.error(getApiError(err));
+      // Still proceed to dashboard even if persistence fails — don't trap the user.
+      navigate("/dashboard");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -150,16 +171,25 @@ const OnboardingPage = () => {
           )}
           <Button
             onClick={() => (step < 3 ? setStep(step + 1) : handleComplete())}
-            disabled={step === 2 && selectedNiches.length === 0}
+            disabled={(step === 2 && selectedNiches.length === 0) || isSaving}
             className="flex-1 h-12 gradient-primary text-primary-foreground font-semibold rounded-xl shadow-glow hover:opacity-90 transition-all duration-200"
           >
-            <span>{step === 3 ? "Get Started" : "Continue"}</span>
-            <ArrowRight className="h-5 w-5 ml-2" />
+            {isSaving ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                Saving...
+              </div>
+            ) : (
+              <>
+                <span>{step === 3 ? "Get Started" : "Continue"}</span>
+                <ArrowRight className="h-5 w-5 ml-2" />
+              </>
+            )}
           </Button>
         </div>
         {step === 3 && (
           <button
-            onClick={handleComplete}
+            onClick={() => navigate("/dashboard")}
             className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Skip for now

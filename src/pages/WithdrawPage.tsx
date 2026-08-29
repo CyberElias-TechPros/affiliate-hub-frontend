@@ -4,6 +4,8 @@ import { ArrowLeft, Building2, Wallet, DollarSign, Check, AlertCircle } from "lu
 import { Button } from "@/components/ui/button";
 import { CustomInput } from "@/components/ui/CustomInput";
 import { toast } from "sonner";
+import { WalletAPI, getApiError } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const withdrawMethods = [
   { id: "bank", label: "Bank Transfer", icon: Building2, fee: "Free", time: "1-2 hours" },
@@ -13,12 +15,21 @@ const withdrawMethods = [
 
 const WithdrawPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [amount, setAmount] = React.useState("");
   const [method, setMethod] = React.useState("bank");
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [accountNumber, setAccountNumber] = React.useState("");
+  const [bankName, setBankName] = React.useState("");
 
-  const availableBalance = 472500;
+  // Fetch live available balance
+  const { data: balance } = useQuery({
+    queryKey: ['wallet-balance'],
+    queryFn: () => WalletAPI.getBalance(),
+    select: (r) => r.data,
+  });
+  const availableBalance = balance?.ngnBalance ?? 0;
   const amountNum = parseFloat(amount.replace(/,/g, "")) || 0;
   const isValidAmount = amountNum >= 5000 && amountNum <= availableBalance;
 
@@ -32,11 +43,21 @@ const WithdrawPage = () => {
   };
 
   const handleWithdraw = async () => {
+    if (!isValidAmount) return;
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsLoading(false);
-    toast.success("Withdrawal request submitted!");
-    navigate("/wallet");
+    try {
+      const details = method === "bank" ? { accountNumber, bankName } : undefined;
+      await WalletAPI.withdraw(amountNum, method, details);
+      toast.success("Withdrawal request submitted!");
+      // Refresh the wallet balance and transaction history
+      queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
+      navigate("/wallet");
+    } catch (err) {
+      toast.error(getApiError(err));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -213,8 +234,19 @@ const WithdrawPage = () => {
 
             {method === "bank" && (
               <div className="space-y-4">
-                <CustomInput label="Account Number" placeholder="Enter account number" />
-                <CustomInput label="Bank Name" placeholder="Select your bank" />
+                <CustomInput
+                  label="Account Number"
+                  placeholder="Enter account number"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/[^0-9]/g, ""))}
+                  maxLength={10}
+                />
+                <CustomInput
+                  label="Bank Name"
+                  placeholder="Select your bank"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                />
               </div>
             )}
 

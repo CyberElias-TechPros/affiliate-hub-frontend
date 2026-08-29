@@ -7,14 +7,20 @@ import {
 import { MenuItem } from "@/components/ui/MenuItem";
 import { Switch } from "@/components/ui/switch";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const [darkMode, setDarkMode] = React.useState(false);
+  const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [notifications, setNotifications] = React.useState(true);
 
+  const darkMode = theme === "dark";
+
   const handleLogout = () => {
-    navigate("/auth");
+    logout();
+    navigate("/auth", { replace: true });
   };
 
   return (
@@ -23,11 +29,11 @@ const ProfilePage = () => {
       <div className="px-4 pt-6 pb-8 gradient-hero">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center text-primary-foreground text-xl font-bold shadow-glow">
-            CN
+            {user?.name?.charAt(0).toUpperCase() || "U"}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold font-display text-foreground">Chinedu Nwankwo</h1>
-            <p className="text-muted-foreground">chinedu@email.com</p>
+            <h1 className="text-xl font-bold font-display text-foreground">{user?.name || "Affiliate"}</h1>
+            <p className="text-muted-foreground">{user?.email || ""}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className="px-2 py-0.5 rounded-full bg-success/10 text-success text-xs font-medium">
                 Pro Affiliate
@@ -74,7 +80,7 @@ const ProfilePage = () => {
             title="Dark Mode"
             showArrow={false}
             rightElement={
-              <Switch checked={darkMode} onCheckedChange={setDarkMode} />
+              <Switch checked={darkMode} onCheckedChange={toggleTheme} />
             }
           />
           <MenuItem

@@ -6,53 +6,30 @@ import { StatusTag } from "@/components/ui/StatusTag";
 import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ContentAd, StickyFooterAd } from "@/components/common/AdBanner";
-
-const transactions = [
-  {
-    id: "1",
-    type: "credit" as const,
-    title: "Forex Course Sale",
-    amount: 67500,
-    date: "Dec 26, 2024",
-    status: "completed" as const,
-  },
-  {
-    id: "2",
-    type: "debit" as const,
-    title: "Withdrawal to GTBank",
-    amount: 150000,
-    date: "Dec 25, 2024",
-    status: "completed" as const,
-  },
-  {
-    id: "3",
-    type: "credit" as const,
-    title: "Fitness Watch Sale",
-    amount: 11250,
-    date: "Dec 24, 2024",
-    status: "pending" as const,
-  },
-  {
-    id: "4",
-    type: "credit" as const,
-    title: "Masterclass Sale",
-    amount: 37500,
-    date: "Dec 23, 2024",
-    status: "completed" as const,
-  },
-  {
-    id: "5",
-    type: "debit" as const,
-    title: "Withdrawal to USDT",
-    amount: 50000,
-    date: "Dec 22, 2024",
-    status: "processing" as const,
-  },
-];
+import { WalletAPI } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const WalletPage = () => {
   const navigate = useNavigate();
   const [activeCard, setActiveCard] = React.useState(0);
+
+  // Fetch live wallet balance
+  const { data: balance, isLoading: balanceLoading } = useQuery({
+    queryKey: ['wallet-balance'],
+    queryFn: () => WalletAPI.getBalance(),
+    select: (r) => r.data,
+  });
+
+  // Fetch live transaction history
+  const { data: transactions = [], isLoading: txLoading } = useQuery({
+    queryKey: ['wallet-transactions'],
+    queryFn: () => WalletAPI.getTransactions({ limit: 20 }),
+    select: (r) => r.data,
+  });
+
+  const ngnBalance = balance?.ngnBalance ?? 0;
+  const usdBalance = balance?.usdBalance ?? 0;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -64,10 +41,18 @@ const WalletPage = () => {
         <div className="relative">
           <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide">
             <div className="min-w-full snap-center" onClick={() => setActiveCard(0)}>
-              <BalanceCard currency="NGN" balance={472500} trend={12} isActive={activeCard === 0} />
+              {balanceLoading ? (
+                <Skeleton className="h-40 w-full rounded-2xl" />
+              ) : (
+                <BalanceCard currency="NGN" balance={ngnBalance} trend={12} isActive={activeCard === 0} />
+              )}
             </div>
             <div className="min-w-full snap-center" onClick={() => setActiveCard(1)}>
-              <BalanceCard currency="USD" balance={315} trend={8} isActive={activeCard === 1} />
+              {balanceLoading ? (
+                <Skeleton className="h-40 w-full rounded-2xl" />
+              ) : (
+                <BalanceCard currency="USD" balance={usdBalance} trend={8} isActive={activeCard === 1} />
+              )}
             </div>
           </div>
           <div className="flex justify-center gap-2 mt-2">
@@ -99,35 +84,62 @@ const WalletPage = () => {
         </div>
 
         <div className="space-y-3">
-          {transactions.map((tx, index) => (
-            <div
-              key={tx.id}
-              className="flex items-center gap-3 bg-card rounded-xl p-4 shadow-card animate-fade-up cursor-pointer hover:shadow-lg transition-all"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                tx.type === "credit"
-                  ? "bg-success/10 text-success"
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {tx.type === "credit" ? (
-                  <ArrowDownLeft className="h-5 w-5" />
-                ) : (
-                  <ArrowUpRight className="h-5 w-5" />
-                )}
+          {txLoading ? (
+            [...Array(4)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3 bg-card rounded-xl p-4 shadow-card">
+                <Skeleton className="w-10 h-10 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+                <Skeleton className="h-4 w-16" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">{tx.title}</p>
-                <p className="text-sm text-muted-foreground">{tx.date}</p>
-              </div>
-              <div className="text-right">
-                <p className={`font-bold ${tx.type === "credit" ? "text-success" : "text-foreground"}`}>
-                  {tx.type === "credit" ? "+" : "-"}₦{tx.amount.toLocaleString()}
-                </p>
-                <StatusTag status={tx.status} />
-              </div>
+            ))
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-10 bg-card rounded-xl">
+              <div className="text-3xl mb-2">💰</div>
+              <p className="font-medium text-foreground">No transactions yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Your earnings and withdrawals will appear here.
+              </p>
             </div>
-          ))}
+          ) : (
+            transactions.map((tx, index) => (
+              <div
+                key={tx.id}
+                className="flex items-center gap-3 bg-card rounded-xl p-4 shadow-card animate-fade-up cursor-pointer hover:shadow-lg transition-all"
+                style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  tx.type === "credit"
+                    ? "bg-success/10 text-success"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {tx.type === "credit" ? (
+                    <ArrowDownLeft className="h-5 w-5" />
+                  ) : (
+                    <ArrowUpRight className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">
+                    {tx.description || (tx.type === "credit" ? "Commission" : "Withdrawal")}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {tx.created_at ? new Date(tx.created_at).toLocaleDateString(undefined, {
+                      year: "numeric", month: "short", day: "numeric",
+                    }) : ""}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={`font-bold ${tx.type === "credit" ? "text-success" : "text-foreground"}`}>
+                    {tx.type === "credit" ? "+" : "-"}₦{Number(tx.amount).toLocaleString()}
+                  </p>
+                  <StatusTag status={tx.status} />
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <button className="w-full mt-4 py-3 text-primary font-medium flex items-center justify-center">
