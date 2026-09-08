@@ -409,7 +409,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Suite | Command | Result |
 |---|---|---|
 | Backend integration | `npm --prefix api run test` | **60 / 60 passed** |
-| Frontend unit + component | `npm run test` | **60 / 60 passed** |
+| Frontend unit + component | `npm run test` | **62 / 62 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
 | Lint | `npm run lint` | **0 errors**, 15 warnings |
@@ -495,12 +495,28 @@ The `$10` was the serious one: unlike the others it was not puffery but a wrong 
 a rule the server owns, so a user following the page would have had their withdrawal
 rejected.
 
-Two bugs in the test itself had to be found by mutation-checking it: the FAQ answers are
-conditionally rendered behind a single-select accordion, so the initial DOM never contained
-the text being policed; and the text collector fragmented each snapshot and rejoined it with
-spaces, turning `"$10 for PayPal"` into `"$ 1 0 for P a y P a l"` so nothing could ever
-match. Both made the suite pass vacuously — including on the exact claim it exists to catch.
-After the fix, restoring `$10` fails **2** tests.
+The same duplication existed for contact details and produced a second, subtler defect: the
+app published **three addresses on two different domains at once** — `support@affiliatehub.ng`
+on the landing page, `support@affiliatehub.test` in config, and `privacy@`/`legal@` hardcoded
+on the legal pages. A visitor could not tell which address was real, and setting
+`VITE_SUPPORT_EMAIL` changed the config without changing what anyone saw. All published
+addresses and the WhatsApp deep link now resolve through `src/lib/config.ts`, with
+`VITE_PRIVACY_EMAIL` and `VITE_LEGAL_EMAIL` added and documented.
+
+Three bugs in the test itself had to be found by mutation-checking it, and each one made the
+suite pass vacuously — including on the exact claim it exists to catch:
+
+| Bug in the test | Effect |
+|---|---|
+| FAQ answers are conditionally rendered behind a single-select accordion | initial DOM never contained the text being policed |
+| the collector fragmented each snapshot and rejoined it with spaces | `"$10 for PayPal"` became `"$ 1 0 for P a y P a l"`, so nothing could match |
+| `textContent` concatenates adjacent nodes with no separator | `Support` + `support@x.test` became `supportsupport@x.testwhatsapp` |
+| the WhatsApp number lives in an `href` attribute, not in text | the deep-link assertion could never see it |
+
+The harness now walks text nodes to preserve boundaries and scans link attributes separately.
+After the fixes, restoring `$10` fails **2** tests, a wrong support domain fails **1**, and a
+wrong WhatsApp number fails **1** — each verified by patching the source, running the suite,
+and restoring byte-identical.
 
 **The queue and cron paths are now covered too.** `test/jobs.test.ts` (13 tests) drives
 the payout consumer and all four cron jobs against the worker's *real* bindings — `Env`

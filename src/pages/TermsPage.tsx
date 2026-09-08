@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Seo } from "@/components/seo/Seo";
+import { LEGAL_EMAIL } from "@/lib/config";
 
 const TermsPage = () => {
   return (
@@ -135,7 +136,7 @@ const TermsPage = () => {
                 <p>
                   For questions about these terms, please contact us at:
                   <br />
-                  Email: legal@affiliatehub.ng
+                  Email: {LEGAL_EMAIL}
                   <br />
                   Address: Victoria Island, Lagos, Nigeria
                 </p>

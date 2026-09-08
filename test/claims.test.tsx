@@ -7,6 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 // server actually enforces — if the marketing copy disagrees with this, the
 // user is being told something the API will reject.
 import { PAYOUT_CONFIG } from "../api/src/lib/payouts";
+import { LEGAL_EMAIL, PRIVACY_EMAIL, SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "@/lib/config";
 
 /**
  * Marketing-claim integrity.
@@ -44,7 +45,12 @@ vi.stubGlobal(
   ),
 );
 
-const renderText = async (Page: React.ComponentType): Promise<string> => {
+interface Rendered {
+  text: string;
+  hrefs: string[];
+}
+
+const renderPage = async (Page: React.ComponentType): Promise<Rendered> => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
@@ -61,14 +67,23 @@ const renderText = async (Page: React.ComponentType): Promise<string> => {
   // single-select, so no one render ever contains every answer. A test that
   // reads only the initial DOM passes vacuously: it never sees the text it was
   // written to police. So expand every disclosure and accumulate what appears.
-  // Accumulate whole snapshots. An earlier version split each snapshot into
-  // fragments and rejoined them with spaces, which turned "$10 for PayPal" into
-  // "$ 1 0 for P a y P a l" — so no pattern could ever match and the whole file
-  // passed vacuously, including on the exact claim it exists to police.
+  // Accumulate whole snapshots. Two earlier versions of this both passed
+  // vacuously — one fragmented each snapshot and rejoined it with spaces,
+  // turning "$10 for PayPal" into "$ 1 0 for P a y P a l"; the other used
+  // `textContent`, which concatenates adjacent nodes with no separator, so
+  // "Support" + "support@x.test" became "supportsupport@x.testwhatsapp" and no
+  // address matched cleanly. Walking the text nodes preserves boundaries.
   const seen = new Set<string>();
   const collect = () => {
-    const text = container.textContent ?? "";
-    if (text) seen.add(text);
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const parts: string[] = [];
+    let node = walker.nextNode();
+    while (node) {
+      const value = node.nodeValue?.trim();
+      if (value) parts.push(value);
+      node = walker.nextNode();
+    }
+    if (parts.length) seen.add(parts.join(" "));
   };
 
   collect();
@@ -87,7 +102,13 @@ const renderText = async (Page: React.ComponentType): Promise<string> => {
   }
   collect();
 
-  return [...seen].join(" ");
+  // Link targets are attributes, not text, so a text-only scan cannot see a
+  // deep link pointing at the wrong number. Collect them separately.
+  const hrefs = Array.from(container.querySelectorAll("a[href]")).map(
+    (a) => a.getAttribute("href") ?? "",
+  );
+
+  return { text: [...seen].join(" "), hrefs };
 };
 
 const PAGES = {
@@ -99,12 +120,12 @@ const PAGES = {
   PrivacyPage: () => import("@/pages/PrivacyPage"),
 } as const;
 
-/** Rendered text of every public marketing page, keyed by page name. */
-const renderAll = async (): Promise<Record<string, string>> => {
-  const out: Record<string, string> = {};
+/** Rendered output of every public marketing page, keyed by page name. */
+const renderAll = async (): Promise<Record<string, Rendered>> => {
+  const out: Record<string, Rendered> = {};
   for (const [name, load] of Object.entries(PAGES)) {
     const mod = await load();
-    out[name] = await renderText(mod.default);
+    out[name] = await renderPage(mod.default);
   }
   return out;
 };
@@ -137,13 +158,56 @@ describe("public pages make no unverifiable claims", () => {
     const mod = await (PAGES as Record<string, () => Promise<{ default: React.ComponentType }>>)[
       name
     ]();
-    const text = await renderText(mod.default);
+    const { text } = await renderPage(mod.default);
 
     const violations = FORBIDDEN.filter((f) => f.pattern.test(text)).map(
       (f) => `${f.pattern} — ${f.why}`,
     );
 
     expect(violations, `${name} contains fabricated claims:\n${violations.join("\n")}`).toEqual([]);
+  });
+});
+
+describe("published contact details come from config", () => {
+  it("no page hardcodes an email address or phone number", () => {
+    // Three addresses on two domains were published simultaneously:
+    // support@affiliatehub.ng on the landing page, support@affiliatehub.test in
+    // config, plus privacy@ and legal@ hardcoded on the legal pages. A visitor
+    // could not tell which was real, and setting VITE_SUPPORT_EMAIL changed the
+    // config without changing what anyone saw. Everything must now resolve
+    // through config, so the rendered output can only contain the configured
+    // values.
+    const configured = [SUPPORT_EMAIL, PRIVACY_EMAIL, LEGAL_EMAIL].map((v) => v.toLowerCase());
+
+    return renderAll().then((pages) => {
+      for (const [name, page] of Object.entries(pages)) {
+        const text = page.text;
+        const emails = [...text.matchAll(/[\w.+-]+@[\w-]+\.[\w.]+/g)]
+          .map((m) => m[0].toLowerCase())
+          .filter((e) => !e.endsWith("@example.com")); // input placeholders
+
+        const unconfigured = emails.filter((e) => !configured.includes(e));
+        expect(
+          unconfigured,
+          `${name} publishes an address that is not in config: ${unconfigured.join(", ")}`,
+        ).toEqual([]);
+      }
+    });
+  });
+
+  it("every WhatsApp deep link uses the configured number", () => {
+    const digits = SUPPORT_WHATSAPP.replace(/\D/g, "");
+    return renderAll().then((pages) => {
+      for (const [name, page] of Object.entries(pages)) {
+        // The number is in the href, so scanning text would never find it —
+        // this assertion passed vacuously until it scanned attributes.
+        const numbers = page.hrefs
+          .flatMap((h) => [...h.matchAll(/wa\.me\/(\d+)/g)])
+          .map((m) => m[1]);
+        const wrong = numbers.filter((n) => n !== digits);
+        expect(wrong, `${name} deep-links a WhatsApp number that is not configured`).toEqual([]);
+      }
+    });
   });
 });
 
@@ -156,7 +220,8 @@ describe("advertised payout rules match what the Worker enforces", () => {
 
     const expected = `₦${nairaMinimum.toLocaleString("en-NG")}`;
     return renderAll().then((pages) => {
-      for (const [name, text] of Object.entries(pages)) {
+      for (const [name, page] of Object.entries(pages)) {
+        const text = page.text;
         // Only pages that mention a naira minimum are checked, and they must
         // state the real one.
         if (/minimum withdrawal/i.test(text) || /₦[\d,]+/.test(text)) {
@@ -174,7 +239,8 @@ describe("advertised payout rules match what the Worker enforces", () => {
 
     const expected = `$${PAYOUT_CONFIG.paypal.minimumMinor / 100}`;
     return renderAll().then((pages) => {
-      for (const [name, text] of Object.entries(pages)) {
+      for (const [name, page] of Object.entries(pages)) {
+        const text = page.text;
         if (/paypal|usdt/i.test(text) && /\$\d+/.test(text)) {
           const stated = [...text.matchAll(/\$(\d+)/g)].map((m) => Number(m[1]));
           // Any dollar minimum named must be the real one, never a lower figure

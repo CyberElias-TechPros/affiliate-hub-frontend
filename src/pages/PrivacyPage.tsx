@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Seo } from "@/components/seo/Seo";
+import { PRIVACY_EMAIL } from "@/lib/config";
 
 const PrivacyPage = () => {
   return (
@@ -112,7 +113,7 @@ const PrivacyPage = () => {
                   <li>Object to certain processing activities</li>
                   <li>Withdraw consent where applicable</li>
                 </ul>
-                <p className="mt-3">To exercise these rights, contact us at privacy@affiliatehub.ng</p>
+                <p className="mt-3">To exercise these rights, contact us at {PRIVACY_EMAIL}</p>
               </section>
 
               <section>
@@ -153,7 +154,7 @@ const PrivacyPage = () => {
                 <p>
                   For questions about this privacy policy or your personal data, contact us at:
                   <br />
-                  Email: privacy@affiliatehub.ng
+                  Email: {PRIVACY_EMAIL}
                   <br />
                   Address: Victoria Island, Lagos, Nigeria
                 </p>

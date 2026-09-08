@@ -7,6 +7,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ContentAd } from "@/components/common/AdBanner";
 import { Seo, organizationSchema } from "@/components/seo/Seo";
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "@/lib/config";
+import { whatsappLink } from "@/lib/validation";
 
 /**
  * Landing-page highlights.
@@ -352,8 +354,8 @@ const LandingPage = () => {
             <div>
               <h4 className="font-semibold text-foreground mb-4">Support</h4>
               <div className="space-y-2">
-                <a href="mailto:support@affiliatehub.ng" className="block text-muted-foreground hover:text-foreground transition-colors">support@affiliatehub.ng</a>
-                <a href="https://wa.me/2348012345678" target="_blank" rel="noreferrer" className="block text-muted-foreground hover:text-foreground transition-colors">WhatsApp Support</a>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="block text-muted-foreground hover:text-foreground transition-colors">{SUPPORT_EMAIL}</a>
+                <a href={whatsappLink(SUPPORT_WHATSAPP)} target="_blank" rel="noreferrer" className="block text-muted-foreground hover:text-foreground transition-colors">WhatsApp Support</a>
               </div>
             </div>
           </div>

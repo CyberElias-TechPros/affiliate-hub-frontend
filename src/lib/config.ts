@@ -46,6 +46,19 @@ export const config = {
   supportWhatsapp: env('VITE_SUPPORT_WHATSAPP', '2348012345678'),
   supportEmail: env('VITE_SUPPORT_EMAIL', 'support@affiliatehub.test'),
 
+  /**
+   * Legal and privacy contacts.
+   *
+   * These exist because the pages previously hardcoded three different
+   * addresses on two different domains — `support@affiliatehub.ng` on the
+   * landing page while config defaulted to `support@affiliatehub.test`. A
+   * visitor could not tell which address was real, and setting
+   * `VITE_SUPPORT_EMAIL` changed the config without changing what the pages
+   * displayed. Every published address now comes from here.
+   */
+  privacyEmail: env('VITE_PRIVACY_EMAIL', 'privacy@affiliatehub.test'),
+  legalEmail: env('VITE_LEGAL_EMAIL', 'legal@affiliatehub.test'),
+
   /** Milliseconds a request may take before the client gives up. */
   requestTimeoutMs: Number(env('VITE_API_TIMEOUT_MS', '15000')),
 } as const;
@@ -69,3 +82,9 @@ export const SUPPORT_EMAIL: string = config.supportEmail;
 
 /** Support WhatsApp in E.164 form with a leading '+', ready for a deep link. */
 export const SUPPORT_WHATSAPP: string = `+${config.supportWhatsapp}`;
+
+/** Privacy contact, shown on the privacy policy. */
+export const PRIVACY_EMAIL: string = config.privacyEmail;
+
+/** Legal contact, shown in the terms of service. */
+export const LEGAL_EMAIL: string = config.legalEmail;
