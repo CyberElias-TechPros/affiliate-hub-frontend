@@ -70,8 +70,8 @@ const AboutPage = () => {
               About Affiliate Hub
             </h1>
             <p className="text-lg text-muted-foreground">
-              We're on a mission to empower Nigerians to earn passive income through affiliate marketing. 
-              Founded in 2022, we've grown to become Nigeria's most trusted affiliate platform.
+              We're on a mission to empower Nigerians to earn passive income through affiliate
+              marketing, with transparent commission rates and a payout process affiliates can audit.
             </p>
           </div>
         </div>
@@ -95,8 +95,9 @@ const AboutPage = () => {
                     unreasonably high payout thresholds.
                   </p>
                   <p>
-                    Today, we've paid out over ₦50 million to affiliates across Nigeria, proving that 
-                    local solutions can compete with global platforms—and win.
+                    Affiliate Hub is built for the Nigerian market first: local payment methods, naira
+                    balances, and a payout process that does not route creators through overseas
+                    platforms before the money reaches them.
                   </p>
                 </div>
               </div>

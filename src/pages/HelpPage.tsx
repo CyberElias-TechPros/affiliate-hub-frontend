@@ -12,7 +12,7 @@ const faqs = [
   },
   {
     question: "What is the minimum withdrawal?",
-    answer: "The minimum withdrawal amount is ₦5,000 for bank transfers and $10 for PayPal/USDT withdrawals.",
+    answer: "The minimum withdrawal amount is ₦5,000 for bank transfers and $50 for PayPal and USDT withdrawals. Fees and minimums for each method are shown on the withdrawal page before you confirm.",
   },
   {
     question: "How do commissions work?",

@@ -409,7 +409,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Suite | Command | Result |
 |---|---|---|
 | Backend integration | `npm --prefix api run test` | **60 / 60 passed** |
-| Frontend unit + component | `npm run test` | **50 / 50 passed** |
+| Frontend unit + component | `npm run test` | **60 / 60 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
 | Lint | `npm run lint` | **0 errors**, 15 warnings |
@@ -472,6 +472,35 @@ completely blank page with no way back, which is the worst possible failure mode
 money app, since the user cannot even see that something failed. `ErrorBoundary` now
 wraps the route tree, keeps a recovery UI with retry and home on screen, and re-logs the
 error rather than swallowing it. Two tests pin both behaviours.
+
+**Fabricated-claim drift is now a test failure, not a review chore.**
+`test/claims.test.tsx` (10 tests) renders every public marketing page and asserts two
+things: no unverifiable claim appears, and every advertised payout figure equals the value
+in `PAYOUT_CONFIG` that the Worker actually enforces. This exists because the same class of
+defect survived three separate review passes — the only defence was a grep sweep someone had
+to remember to run.
+
+Writing it found a fourth batch of live fabrications that earlier passes had missed:
+
+| Claim | Where | Reality |
+|---|---|---|
+| "paid out over ₦50 million" | AboutPage | no payout has ever been made |
+| "top affiliates earn ₦500,000+ monthly" | HowItWorksPage | no affiliate earnings exist |
+| "marketplace of 500+ products" | HowItWorksPage | the catalogue holds 6 |
+| "Link your WhatsApp for instant sale notifications" | HowItWorksPage | no outbound provider exists |
+| "$10 for PayPal/USDT withdrawals" | HelpPage | **the Worker enforces $50** |
+| "Nigeria's most trusted", "Nigeria's leading", "among the highest in Nigeria" | About/Landing | unverifiable superlatives |
+
+The `$10` was the serious one: unlike the others it was not puffery but a wrong number about
+a rule the server owns, so a user following the page would have had their withdrawal
+rejected.
+
+Two bugs in the test itself had to be found by mutation-checking it: the FAQ answers are
+conditionally rendered behind a single-select accordion, so the initial DOM never contained
+the text being policed; and the text collector fragmented each snapshot and rejoined it with
+spaces, turning `"$10 for PayPal"` into `"$ 1 0 for P a y P a l"` so nothing could ever
+match. Both made the suite pass vacuously — including on the exact claim it exists to catch.
+After the fix, restoring `$10` fails **2** tests.
 
 **The queue and cron paths are now covered too.** `test/jobs.test.ts` (13 tests) drives
 the payout consumer and all four cron jobs against the worker's *real* bindings — `Env`

@@ -31,7 +31,7 @@ const features = [
   {
     icon: TrendingUp,
     title: "High Commissions",
-    description: "Earn up to 50% commission on every sale. Our rates are among the highest in Nigeria.",
+    description: "Commission rates are set per product and shown before you promote anything — currently up to 50% on eligible products.",
   },
   {
     icon: Wallet,
@@ -331,7 +331,7 @@ const LandingPage = () => {
                 <span className="font-bold text-xl font-display text-foreground">Affiliate Hub</span>
               </Link>
               <p className="text-muted-foreground">
-                Nigeria's leading affiliate marketing platform. Earn money promoting products you love.
+                An affiliate marketplace for Nigerian creators. Earn commission promoting products you already use.
               </p>
             </div>
             <div>
