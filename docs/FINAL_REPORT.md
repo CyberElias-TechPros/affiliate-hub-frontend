@@ -445,17 +445,28 @@ assertion that cannot fail is decoration. Two controls claimed in `SECURITY.md` 
 but no test, so tests were written for them and then deliberately broken to confirm the
 tests bite:
 
-| Control | Mutation applied | Result |
+| Control or claim | Mutation applied | Result |
 |---|---|---|
 | Refresh-token family revocation | Reuse-detection branch neutered to return instead of revoking | **2 tests failed** ✓ |
 | Visitor-IP hashing | `visitorFingerprint(...)` replaced with the raw `c.reqCtx.ip` | **1 test failed** ✓ |
+| Payout never faked as settled | Consumer marks the tx `completed` with no provider configured | **4 tests failed** ✓ |
+| Advertised payout minimums | HelpPage's `$50` reverted to the wrong `$10` | **2 tests failed** ✓ |
+| Support contact from config | Landing page hardcoded to a different domain | **1 test failed** ✓ |
+| WhatsApp deep link from config | `href` pointed at an unconfigured number | **1 test failed** ✓ |
+| Guarded routes excluded from crawlers | `Disallow: /products/` dropped | **2 tests failed** ✓ |
+| Sitemap origin matches config | Generator default diverged from `config.ts` | **3 tests failed** ✓ |
+| Refresh serialisation | `refreshInFlight ??=` changed to `=` | **1 test failed** ✓ |
+| Refresh-then-retry | Retry after a successful refresh disabled | **4 tests failed** ✓ |
 
-Both files were then restored and verified byte-identical to their pre-mutation state
-(`diff` clean, no `MUTATED` markers left in `src/`), and the suite returned to 47/47.
+Every mutated file was restored and verified byte-identical to its pre-mutation state
+(`diff` clean, no `MUTATED` markers left in `src/`).
 
-This is why the count went from 46 to 47: the family-revocation and IP-hashing claims
-were previously **Implemented but not Verified**, and this report had already been
-wrong three times about the difference.
+The first two rows are why the backend count went from 46 to 47: the family-revocation and
+IP-hashing claims were previously **Implemented but not Verified**, and this report had
+already been wrong three times about the difference. The remaining rows were added as each
+control was written, because four separate times a test suite passed while asserting
+nothing — the vacuous-pass table in the claims section below records all four. That
+repetition is the argument for mutation-checking as a standing step rather than a one-off.
 
 **The app was also proven to mount.** Every other frontend test rendered a component in
 isolation, and `npm run build` succeeding only means the module graph resolves and the
