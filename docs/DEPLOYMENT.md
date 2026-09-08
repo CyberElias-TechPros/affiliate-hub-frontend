@@ -131,6 +131,14 @@ Framework preset **Vite**, build command `npm run build`, output directory `dist
 
 Replace `REPLACE_ME` with your Worker URL.
 
+**The build enforces this.** `npm run build:vercel` runs `scripts/check-deploy.mjs vercel`
+before building, and fails on an unfilled placeholder. That matters because Vercel does not
+substitute environment variables in `vercel.json` — only in code — so this destination has
+to be a literal, and a wrong one is not detectable any other way. Without the check the
+build succeeds, the deploy succeeds, the site renders, and then every `/api` call fails
+against a host that does not exist. Run `npm run check:deploy` locally to check both
+targets at once.
+
 Keeping the API behind the same origin means the browser never makes a cross-origin
 call — no CORS preflight, no cookie/credential edge cases, and `VITE_API_BASE_URL` can
 stay at its `/api/v1` default.
@@ -170,11 +178,19 @@ Push to the production branch. Vercel builds and deploys automatically.
 - [ ] `wrangler deployments list` shows the expected version
 - [ ] Cron is registered: `wrangler triggers list` (or the dashboard Triggers tab)
 
-### Editing sitemap.xml
+### Adding a page to the sitemap
 
-`public/sitemap.xml` lists hardcoded URLs. If you add a public page, add it there too —
-a page absent from the sitemap is still crawlable via links, so this is a nudge to
-crawlers, not a gate.
+`public/sitemap.xml` and `public/robots.txt` are **generated** — do not edit them by hand.
+Add the page to `ROUTES` in `scripts/site-config.mjs` and run `npm run sitemap` (the build
+runs it automatically). Both files carry a header saying so.
+
+The route list is checked against the real `<Route>` declarations in `src/App.tsx` by
+`test/seo-artifacts.test.ts`: a public route missing from `ROUTES` fails the build, and so
+does a guarded route missing from `DISALLOWED` — that one would let crawlers index empty
+shells from behind the route guard.
+
+Omission from the sitemap is a nudge to crawlers, not a gate: a page absent here is still
+crawlable via links.
 
 ---
 

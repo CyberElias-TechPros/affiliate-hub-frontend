@@ -409,7 +409,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Suite | Command | Result |
 |---|---|---|
 | Backend integration | `npm --prefix api run test` | **60 / 60 passed** |
-| Frontend unit + component | `npm run test` | **73 / 73 passed** |
+| Frontend unit + component | `npm run test` | **82 / 82 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
 | Lint | `npm run lint` | **0 errors**, 15 warnings |
@@ -552,6 +552,18 @@ are the generator's output. Writing it reproduced my own regression: my first
 `robots.txt` dropped `Disallow: /products/`, and `/products/:slug` sits behind
 `ProtectedRoute`, so a crawler would have indexed empty shells. Mutation-checked — dropping
 that rule again fails **2** tests, and diverging the generator default fails **3**.
+
+**The `vercel.json` placeholder is now a build failure rather than a broken deploy.**
+Vercel does not substitute environment variables in `vercel.json` — only in code — so the
+`/api/*` rewrite destination has to be a literal, and it currently reads
+`affiliate-hub-api.REPLACE_ME.workers.dev`. Left alone that is undetectable: the build
+succeeds, the deploy succeeds, the site renders, and then every API call fails against a
+host that does not exist. `scripts/check-deploy.mjs` now runs before the Vercel build
+(`build:vercel` is the `buildCommand`) and fails with the file, line and token. The plain
+`npm run build` deliberately does *not* run it, so `npm run verify` still works without a
+Cloudflare account — a check people have to disable is worse than no check.
+`test/deploy-preflight.test.ts` (9 tests) covers both targets, the pass path with real ids
+substituted, and that the guard is actually wired into the build command.
 
 **The queue and cron paths are now covered too.** `test/jobs.test.ts` (13 tests) drives
 the payout consumer and all four cron jobs against the worker's *real* bindings — `Env`

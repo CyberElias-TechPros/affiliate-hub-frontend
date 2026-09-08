@@ -14,7 +14,9 @@
     "test:watch": "vitest",
     "test:api": "npm --prefix api run test",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "sitemap": "node scripts/generate-sitemap.mjs"
+    "sitemap": "node scripts/generate-sitemap.mjs",
+    "build:vercel": "node scripts/check-deploy.mjs vercel && npm run build",
+    "check:deploy": "node scripts/check-deploy.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
