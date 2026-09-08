@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, GuestRoute } from "@/components/routing/ProtectedRoute";
+import { ErrorBoundary } from "@/components/routing/ErrorBoundary";
 import { ScrollToTop } from "@/components/routing/ScrollToTop";
 import { SkipLink } from "@/components/layout/SkipLink";
 import { AdProvider } from "@/contexts/AdContext";
@@ -82,6 +83,7 @@ const AppContent = () => (
     <Toaster />
     <Sonner />
     <React.Suspense fallback={<RouteFallback />}>
+      <ErrorBoundary name="routes">
       <Routes>
         {/* Public, indexable marketing pages */}
         <Route path="/" element={<LandingPage />} />
@@ -187,6 +189,7 @@ const AppContent = () => (
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </ErrorBoundary>
     </React.Suspense>
   </TooltipProvider>
 );

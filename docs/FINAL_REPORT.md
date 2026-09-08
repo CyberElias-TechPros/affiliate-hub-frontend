@@ -409,7 +409,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Suite | Command | Result |
 |---|---|---|
 | Backend integration | `npm --prefix api run test` | **47 / 47 passed** |
-| Frontend unit + component | `npm run test` | **42 / 42 passed** |
+| Frontend unit + component | `npm run test` | **50 / 50 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
 | Lint | `npm run lint` | **0 errors**, 15 warnings |
@@ -456,6 +456,22 @@ Both files were then restored and verified byte-identical to their pre-mutation 
 This is why the count went from 46 to 47: the family-revocation and IP-hashing claims
 were previously **Implemented but not Verified**, and this report had already been
 wrong three times about the difference.
+
+**The app was also proven to mount.** Every other frontend test rendered a component in
+isolation, and `npm run build` succeeding only means the module graph resolves and the
+types line up — not that the tree renders. A missing provider, a hook used outside its
+context, or an undefined import all compile and build cleanly, then throw on first paint
+in front of a user. `test/render.test.tsx` (8 tests) now renders the landing, wallet,
+stats, profile, marketplace and 404 pages inside the real provider stack with `fetch`
+stubbed at the network boundary, so the data-loading paths run too. It asserts the
+wallet shows the seeded `₦67,500.00` and never the prototype's hardcoded `₦472,500`.
+
+That suite immediately found a real robustness gap: **there was no error boundary**. Any
+throw during render propagated to React's root and unmounted the entire tree — a
+completely blank page with no way back, which is the worst possible failure mode for a
+money app, since the user cannot even see that something failed. `ErrorBoundary` now
+wraps the route tree, keeps a recovery UI with retry and home on screen, and re-logs the
+error rather than swallowing it. Two tests pin both behaviours.
 
 **Not covered:** browser E2E (no Playwright), visual regression, load testing, and the
 queue/cron paths under real Cloudflare timing. These are named as gaps, not implied as
