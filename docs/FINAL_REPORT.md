@@ -270,7 +270,16 @@ Twitter cards pointing at a real `og-image.png`; JSON-LD for Organization, WebSi
 Breadcrumb and FAQ; a sitemap listing only public pages; `robots.txt` disallowing
 authenticated routes and `/api/`; a web app manifest with real icons.
 
-**Verified** by `test/seo.test.tsx` (8 tests).
+**Verified** by `test/seo.test.tsx` (8 tests), and by an audit of `src/pages/*.tsx`
+confirming all **19** pages render a `<Seo>` block and provide the `id="main-content"`
+skip-link target.
+
+> **Correction.** This section originally claimed per-route metadata site-wide when only
+> 10 of 19 pages had it. The component tests passed because they render `<Seo>` directly
+> and never assert that a given *page* uses it — a unit test on a component cannot catch
+> a page that forgot to render it. The gap was found by auditing the pages, not by the
+> suite. Landing, About, How It Works, Help, Terms, Privacy and NotFound have since been
+> given real metadata, and `NotFound` is `noindex` so a 404 shell cannot enter the index.
 
 **Honestly scoped.** Correct metadata and structured data make a page *eligible* to be
 understood and indexed. They do not guarantee rankings, traffic, Page 1 placement or
@@ -480,11 +489,14 @@ Stated plainly.
     vendor files and the two contexts — cosmetic, and fixing them means splitting vendor
     files for no behavioural gain.
 11. No browser E2E or visual regression tests.
-12. `bun.lockb` and `package-lock.json` both remain; one should be chosen.
 
-**Carried-over documentation debt**
-13. The two legacy plan documents are inaccurate and should be marked superseded in
-    place or removed.
+**Resolved since the first draft of this report**
+12. ~~`bun.lockb` and `package-lock.json` both present~~ — `bun.lockb` removed. Nothing
+    referenced Bun, and two lockfiles means two possible dependency trees.
+13. ~~Legacy plan documents were inaccurate~~ — both now carry a `SUPERSEDED` banner
+    explaining exactly what is wrong with them and pointing at the current docs. They
+    are retained rather than deleted because they are the evidence for several findings
+    in section C, and deleting evidence makes a report unauditable.
 
 ---
 
