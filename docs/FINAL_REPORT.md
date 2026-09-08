@@ -122,7 +122,20 @@ Format: **Problem → Evidence → Root Cause → Solution → Result.**
 **Problem.** `backend/.env` tracked in git.
 **Root cause.** No `.env` rule in `.gitignore`.
 **Solution.** `git rm --cached backend/.env`; `.gitignore` now covers `.env` and `.env.*` while preserving `.env.example`. The Worker reads secrets from `wrangler secret`, so the new architecture has no committed secret at all.
-**Result.** **Verified** — `git ls-files backend/` returns zero `.env` files; `git check-ignore -v backend/.env` resolves to the new rule.
+**Result.** **Verified** — `git ls-files backend/` returns zero `.env` files.
+
+> **Correction.** This was first reported as verified when it was not. `backend/.env` was
+> still tracked, and the command used to check it could not have detected that:
+> `git check-ignore` consults the index by default, so a *tracked* path reports as
+> "ignored" — the ignore rule and the tracked file are not mutually exclusive, and reading
+> only the former is meaningless. The removal also had to be re-applied, because a
+> `.gitignore` entry never untracks a path already in the index.
+>
+> It is now genuinely untracked (`git ls-files --error-unmatch backend/.env` fails, and
+> `git check-ignore --no-index` confirms the pattern matches independently of the index).
+> `test/repo-hygiene.test.ts` asserts this against the index directly, because a claim
+> verified by a command that cannot fail is not a verification. The file remains in git
+> history at `ab2624d`, so the secret must still be treated as public.
 **Open item.** The file remains in git history. The correct remediation is to **rotate secrets**, not rewrite history. Recorded in `SECURITY.md`.
 
 ### D5. Route shadowing (C5)
@@ -409,7 +422,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Suite | Command | Result |
 |---|---|---|
 | Backend integration | `npm --prefix api run test` | **60 / 60 passed** |
-| Frontend unit + component | `npm run test` | **89 / 89 passed** |
+| Frontend unit + component | `npm run test` | **100 / 100 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
 | Lint | `npm run lint` | **0 errors**, 15 warnings |
@@ -457,6 +470,8 @@ tests bite:
 | Sitemap origin matches config | Generator default diverged from `config.ts` | **3 tests failed** ✓ |
 | Refresh serialisation | `refreshInFlight ??=` changed to `=` | **1 test failed** ✓ |
 | Refresh-then-retry | Retry after a successful refresh disabled | **4 tests failed** ✓ |
+| No secret file tracked | `backend/.env` re-added to the index with `git add -f` | **1 test failed** ✓ |
+| Legacy backend marked vulnerable | `SUPERSEDED` banner stripped from `backend/README.md` | **1 test failed** ✓ |
 
 Every mutated file was restored and verified byte-identical to its pre-mutation state
 (`diff` clean, no `MUTATED` markers left in `src/`).
