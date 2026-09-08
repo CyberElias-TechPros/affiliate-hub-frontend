@@ -291,6 +291,29 @@ describe('token rotation', () => {
     expect(reuse.status).toBe(401);
   });
 
+  it('revokes the whole token family when a rotated token is replayed', async () => {
+    const { refreshToken } = await signupClient(env.origin, {}, env.fetch);
+    const client = makeClient(env.origin, { current: null }, env.fetch);
+
+    // Rotate once. `next` is the only currently-valid refresh token.
+    const rotated = await client.post<RefreshData>(api('/auth/refresh'), { refreshToken });
+    expect(rotated.status).toBe(200);
+    const next = rotated.body.data.refreshToken;
+
+    // Replay the ORIGINAL, already-rotated token. This is the theft signal.
+    const replay = await client.post<RefreshData>(api('/auth/refresh'), { refreshToken });
+    expect(replay.status).toBe(401);
+
+    // The claim is not merely "the old token is refused" — the family is torn
+    // down, so the token an attacker may already be holding is dead too.
+    // Without family revocation, a thief who replayed the stale token would
+    // still have a valid `next` in hand.
+    const afterRevoke = await client.post<RefreshData>(api('/auth/refresh'), {
+      refreshToken: next,
+    });
+    expect(afterRevoke.status).toBe(401);
+  });
+
   it('refuses an access token used where a refresh token is expected', async () => {
     const { tokenRef } = await signupClient(env.origin, {}, env.fetch);
     const client = makeClient(env.origin, { current: null }, env.fetch);
@@ -349,6 +372,18 @@ describe('affiliate links', () => {
       .bind(link.body.data.link.id)
       .first<{ total: number }>();
     expect((before?.total ?? 0)).toBeGreaterThanOrEqual(1);
+
+    // The raw IP must never reach the database. `visitor_hash` is a salted
+    // SHA-256, so asserting on the stored column catches a regression that
+    // started writing `c.reqCtx.ip` directly — which would be personal data
+    // retained with no need and no expiry.
+    const stored = await env.db
+      .prepare('SELECT visitor_hash FROM clicks WHERE link_id = ? LIMIT 1')
+      .bind(link.body.data.link.id)
+      .first<{ visitor_hash: string }>();
+    expect(stored?.visitor_hash).toBeTruthy();
+    expect(stored?.visitor_hash).not.toContain('203.0.113');
+    expect(stored?.visitor_hash).toMatch(/^[0-9a-f]{64}$/);
 
     // Replaying the same visitor inside the dedupe window must not inflate it.
     await env.fetch(`${env.origin}${api(`/go/${code}`)}`, { redirect: 'manual' });

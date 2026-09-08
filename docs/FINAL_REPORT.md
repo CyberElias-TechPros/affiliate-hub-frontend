@@ -408,7 +408,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend integration | `npm --prefix api run test` | **46 / 46 passed** |
+| Backend integration | `npm --prefix api run test` | **47 / 47 passed** |
 | Frontend unit + component | `npm run test` | **42 / 42 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
@@ -439,6 +439,23 @@ caught only by execution:
 5. A 401 storm: three concurrent queries each tore down session state.
 6. `commissionFromBps` rounding, and the seed script's SQL parser silently truncating
    `CREATE TABLE` at the first inline `-- comment`.
+
+**The tests were mutation-checked.** A green suite proves nothing on its own — an
+assertion that cannot fail is decoration. Two controls claimed in `SECURITY.md` had code
+but no test, so tests were written for them and then deliberately broken to confirm the
+tests bite:
+
+| Control | Mutation applied | Result |
+|---|---|---|
+| Refresh-token family revocation | Reuse-detection branch neutered to return instead of revoking | **2 tests failed** ✓ |
+| Visitor-IP hashing | `visitorFingerprint(...)` replaced with the raw `c.reqCtx.ip` | **1 test failed** ✓ |
+
+Both files were then restored and verified byte-identical to their pre-mutation state
+(`diff` clean, no `MUTATED` markers left in `src/`), and the suite returned to 47/47.
+
+This is why the count went from 46 to 47: the family-revocation and IP-hashing claims
+were previously **Implemented but not Verified**, and this report had already been
+wrong three times about the difference.
 
 **Not covered:** browser E2E (no Playwright), visual regression, load testing, and the
 queue/cron paths under real Cloudflare timing. These are named as gaps, not implied as
