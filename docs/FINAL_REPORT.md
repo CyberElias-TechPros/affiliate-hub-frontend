@@ -425,7 +425,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Frontend unit + component | `npm run test` | **100 / 100 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
-| Lint | `npm run lint` | **0 errors**, 15 warnings |
+| Lint | `npm run lint` | **0 errors**, 14 warnings |
 | Build | `npm run build` | exit 0 |
 | Full pipeline | `npm run verify` | **exit 0** |
 | Migrations | `wrangler d1 migrations apply --local` | 3 / 3 ✅ |
@@ -674,9 +674,19 @@ Stated plainly.
 
 **Known gaps, by design**
 9. No 2FA, no email delivery, no merchant conversion webhook, no admin panel.
-10. 15 lint warnings remain, all `react-refresh/only-export-components` in shadcn/ui
-    vendor files and the two contexts — cosmetic, and fixing them means splitting vendor
-    files for no behavioural gain.
+10. 14 lint warnings remain, all `react-refresh/only-export-components` — 11 in shadcn/ui
+    vendor files, and 3 in `Seo.tsx`, `AuthContext.tsx` and `AdContext.tsx`, which export a
+    hook or constant alongside a component. Cosmetic: it only means Fast Refresh reloads the
+    module instead of hot-swapping it. Fixing it means splitting files for no behavioural
+    gain, and the two contexts follow the conventional colocated provider + hook shape.
+
+    > **Correction.** This was originally written as "15 warnings, all cosmetic". Checking it
+    > rather than repeating it found that 4 of the 15 were in files I wrote, not vendor code,
+    > and one of those was a genuine defect: `ContactPage` computed `faqItems` as
+    > `faqs.data?.items ?? []`, which allocates a fresh array every render, so the `useMemo`
+    > keyed on it recomputed every time and memoised nothing. Fixed with a module-level
+    > `EMPTY_FAQS`. The lint output was the only thing that surfaced it — treating the
+    > warnings as uniformly cosmetic had hidden a real bug for several passes.
 11. No browser E2E or visual regression tests.
 
 **Resolved since the first draft of this report**

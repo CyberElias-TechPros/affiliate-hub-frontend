@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ContentAd } from "@/components/common/AdBanner";
 import { Seo, breadcrumbSchema, faqSchema } from "@/components/seo/Seo";
 import { COMPANY_NAME, SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "@/lib/config";
+import type { FaqItem } from "@shared/api-contract";
 import { ApiClientError, ContentAPI } from "@/lib/api";
 import { whatsappLink } from "@/lib/validation";
 
@@ -20,6 +21,14 @@ import { whatsappLink } from "@/lib/validation";
  * but did nothing, with no handler and no API endpoint. It now posts a support
  * ticket that creates a row the backend can actually see.
  */
+
+/**
+ * Stable empty array for the FAQ list.
+ *
+ * Inline `?? []` allocates a new array each render, which would make the
+ * `useMemo` below recompute on every render and render the memo pointless.
+ */
+const EMPTY_FAQS: FaqItem[] = [];
 
 const TOPICS = [
   { value: "general", label: "General question" },
@@ -36,7 +45,10 @@ const ContactPage = () => {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
   const faqs = useQuery({ queryKey: ["content", "faqs"], queryFn: () => ContentAPI.faqs() });
-  const faqItems = faqs.data?.items ?? [];
+  // Must be a module-level constant: `faqs.data?.items ?? []` allocates a fresh
+  // array on every render while the query is loading, which changes the identity
+  // of the useMemo dependency below and silently defeats the memoization.
+  const faqItems = faqs.data?.items ?? EMPTY_FAQS;
 
   const submit = useMutation({
     mutationFn: () =>
