@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiClientError,
+  NotificationAPI,
   UNAUTHENTICATED_EVENT,
   resetUnauthenticatedFlag,
   tokenStore,
@@ -135,5 +136,186 @@ describe("authentication handling", () => {
 
     await ProductAPI.list();
     expect(calls[0]?.headers.get("authorization")).toBeNull();
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Token refresh
+
+   The access token lives 15 minutes and the refresh token 30 days, so an active
+   user hits the refresh path constantly. If it is broken the symptom is not an
+   error message — it is a signed-out user every fifteen minutes, with no
+   indication of why. Nothing covered this path before.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+const SESSION = {
+  accessToken: "rotated-access-token",
+  refreshToken: "rotated-refresh-token",
+  expiresIn: 900,
+  user: {
+    id: "u1",
+    name: "Chinedu Nwankwo",
+    email: "demo@affiliatehub.test",
+    whatsapp: null,
+    country: "NG",
+    referralCode: "DEMO1",
+    tier: "pro",
+    onboardingCompleted: true,
+    niches: ["tech"],
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+};
+
+const UNAUTH_BODY = { error: { code: "unauthenticated", message: "Token expired" } };
+
+describe("token refresh", () => {
+  it("transparently retries the original request after a successful refresh", async () => {
+    tokenStore.set({ accessToken: "expired-access", refreshToken: "still-valid-refresh" });
+
+    let sawStaleToken = false;
+    const calls = stubFetch(async (req) => {
+      const url = req.url;
+      if (url.includes("/auth/refresh")) return jsonResponse(200, { ok: true, data: SESSION });
+      // The retry must carry the rotated token, not the expired one.
+      const auth = req.headers.get("authorization") ?? "";
+      if (auth === "Bearer rotated-access-token") {
+        return jsonResponse(200, { ok: true, data: { items: [], unreadCount: 0 } });
+      }
+      sawStaleToken = true;
+      return jsonResponse(401, UNAUTH_BODY);
+    });
+
+    await expect(NotificationAPI.list()).resolves.toBeDefined();
+    expect(sawStaleToken).toBe(true); // it really did 401 first
+    // The rotated token is persisted, so the next request does not 401 again.
+    expect(tokenStore.access).toBe("rotated-access-token");
+    expect(tokenStore.refresh).toBe("rotated-refresh-token");
+    expect(calls.length).toBe(3); // stale GET, refresh, retry
+  });
+
+  it("does not sign the user out when the refresh succeeds", async () => {
+    tokenStore.set({ accessToken: "expired-access", refreshToken: "still-valid-refresh" });
+    const events: unknown[] = [];
+    const listener = (e: Event) => events.push(e);
+    window.addEventListener(UNAUTHENTICATED_EVENT, listener);
+
+    stubFetch(async (req) =>
+      req.url.includes("/auth/refresh")
+        ? jsonResponse(200, { ok: true, data: SESSION })
+        : jsonResponse(401, UNAUTH_BODY),
+    );
+    // First call 401s, refreshes, then the retry also 401s in this stub — so
+    // assert on a handler that lets the retry through.
+    vi.unstubAllGlobals();
+    let first = true;
+    stubFetch(async (req) => {
+      if (req.url.includes("/auth/refresh")) return jsonResponse(200, { ok: true, data: SESSION });
+      if (first) {
+        first = false;
+        return jsonResponse(401, UNAUTH_BODY);
+      }
+      return jsonResponse(200, { ok: true, data: { items: [], unreadCount: 0 } });
+    });
+
+    await NotificationAPI.list();
+    expect(events).toHaveLength(0);
+    expect(tokenStore.access).not.toBeNull();
+    window.removeEventListener(UNAUTHENTICATED_EVENT, listener);
+  });
+
+  it("triggers exactly one refresh for a burst of concurrent 401s", async () => {
+    tokenStore.set({ accessToken: "expired-access", refreshToken: "still-valid-refresh" });
+
+    let refreshCalls = 0;
+    stubFetch(async (req) => {
+      if (req.url.includes("/auth/refresh")) {
+        refreshCalls += 1;
+        return jsonResponse(200, { ok: true, data: SESSION });
+      }
+      const auth = req.headers.get("authorization") ?? "";
+      return auth === "Bearer rotated-access-token"
+        ? jsonResponse(200, { ok: true, data: { items: [], unreadCount: 0 } })
+        : jsonResponse(401, UNAUTH_BODY);
+    });
+
+    // Five pages' worth of queries firing at once is normal on a dashboard load.
+    // Rotating a refresh token is destructive server-side: the first rotation
+    // invalidates the token the others would send, and the server's reuse
+    // detection would then revoke the entire family — signing the user out.
+    await Promise.all([
+      NotificationAPI.list(),
+      NotificationAPI.list(),
+      NotificationAPI.list(),
+      NotificationAPI.list(),
+      NotificationAPI.list(),
+    ]);
+
+    expect(refreshCalls).toBe(1);
+  });
+
+  it("signs the user out once when the refresh token is rejected", async () => {
+    tokenStore.set({ accessToken: "expired-access", refreshToken: "revoked-refresh" });
+    const events: unknown[] = [];
+    const listener = (e: Event) => events.push(e);
+    window.addEventListener(UNAUTHENTICATED_EVENT, listener);
+
+    stubFetch(async (req) =>
+      req.url.includes("/auth/refresh")
+        ? jsonResponse(401, UNAUTH_BODY)
+        : jsonResponse(401, UNAUTH_BODY),
+    );
+
+    await expect(NotificationAPI.list()).rejects.toBeInstanceOf(ApiClientError);
+    expect(events).toHaveLength(1);
+    // Tokens must be cleared, or every subsequent request retries a dead refresh.
+    expect(tokenStore.access).toBeNull();
+    expect(tokenStore.refresh).toBeNull();
+    window.removeEventListener(UNAUTHENTICATED_EVENT, listener);
+  });
+
+  it("treats a refresh that fails at the network as a sign-out, not a crash", async () => {
+    tokenStore.set({ accessToken: "expired-access", refreshToken: "still-valid-refresh" });
+
+    stubFetch(async (req) => {
+      if (req.url.includes("/auth/refresh")) throw new TypeError("Failed to fetch");
+      return jsonResponse(401, UNAUTH_BODY);
+    });
+
+    await expect(NotificationAPI.list()).rejects.toBeInstanceOf(ApiClientError);
+    expect(tokenStore.access).toBeNull();
+  });
+
+  it("does not loop when the refreshed token is also rejected", async () => {
+    tokenStore.set({ accessToken: "expired-access", refreshToken: "still-valid-refresh" });
+
+    let attempts = 0;
+    stubFetch(async (req) => {
+      if (req.url.includes("/auth/refresh")) return jsonResponse(200, { ok: true, data: SESSION });
+      attempts += 1;
+      return jsonResponse(401, UNAUTH_BODY);
+    });
+
+    await expect(NotificationAPI.list()).rejects.toBeInstanceOf(ApiClientError);
+    // One retry, then stop. Retrying in a loop would hammer the API and burn
+    // rate-limit budget on a session that is already dead.
+    expect(attempts).toBe(2);
+  });
+
+  it("never recurses into refresh when the refresh call itself fails", async () => {
+    tokenStore.set({ accessToken: "expired-access", refreshToken: "still-valid-refresh" });
+
+    let refreshCalls = 0;
+    stubFetch(async (req) => {
+      if (req.url.includes("/auth/refresh")) {
+        refreshCalls += 1;
+        return jsonResponse(401, UNAUTH_BODY);
+      }
+      return jsonResponse(401, UNAUTH_BODY);
+    });
+
+    await expect(NotificationAPI.list()).rejects.toBeInstanceOf(ApiClientError);
+    // The refresh call goes out over raw fetch rather than the request wrapper,
+    // so a failing refresh cannot re-enter the refresh path. One call only.
+    expect(refreshCalls).toBe(1);
   });
 });

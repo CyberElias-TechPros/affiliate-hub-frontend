@@ -409,7 +409,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Suite | Command | Result |
 |---|---|---|
 | Backend integration | `npm --prefix api run test` | **60 / 60 passed** |
-| Frontend unit + component | `npm run test` | **82 / 82 passed** |
+| Frontend unit + component | `npm run test` | **89 / 89 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
 | Lint | `npm run lint` | **0 errors**, 15 warnings |
@@ -564,6 +564,20 @@ host that does not exist. `scripts/check-deploy.mjs` now runs before the Vercel 
 Cloudflare account — a check people have to disable is worse than no check.
 `test/deploy-preflight.test.ts` (9 tests) covers both targets, the pass path with real ids
 substituted, and that the guard is actually wired into the build command.
+
+**The client token-refresh path was untested.** Access tokens live 15 minutes and refresh
+tokens 30 days, so an active user hits the refresh path constantly. A defect there does not
+produce an error message — it produces a signed-out user every fifteen minutes with no
+indication of why. `test/api.test.tsx` now covers it directly (7 tests): transparent retry
+with the rotated token, exactly one refresh for a burst of concurrent 401s, single sign-out
+when the refresh token is rejected, network failure during refresh, and no retry loop when
+the rotated token is also rejected.
+
+The concurrency case is the dangerous one. Rotating a refresh token is destructive
+server-side — the first rotation invalidates the token the other in-flight requests would
+send, and the server's reuse detection then revokes the entire family. A dashboard loading
+five queries at once would sign the user out. `refreshInFlight` already serialised this
+correctly; mutation-checking confirms removing the `??=` fails the test.
 
 **The queue and cron paths are now covered too.** `test/jobs.test.ts` (13 tests) drives
 the payout consumer and all four cron jobs against the worker's *real* bindings — `Env`
