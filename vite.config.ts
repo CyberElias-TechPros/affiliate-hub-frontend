@@ -1,9 +1,25 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { DEFAULT_SITE_URL } from "./scripts/site-config.mjs";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // index.html substitutes %VITE_SITE_URL% into the canonical, og:url and
+  // og:image tags. `.env` is gitignored, so a fresh clone has no value for it,
+  // and Vite then leaves the literal `%VITE_SITE_URL%` in the HTML — which is
+  // not merely wrong: `%VI` is an invalid percent-escape, so Vite's HTML parser
+  // throws "URI malformed" and the build fails outright.
+  //
+  // Defaulting from the same constant the sitemap generator uses keeps the
+  // canonicals and the sitemap on one origin. `test/seo-artifacts.test.ts`
+  // asserts src/lib/config.ts agrees with it too.
+  const env = loadEnv(mode, process.cwd(), "");
+  if (!env.VITE_SITE_URL) {
+    process.env.VITE_SITE_URL = DEFAULT_SITE_URL;
+  }
+
+  return {
   server: {
     // Bind to every interface so the sandboxed preview can reach the server.
     host: "0.0.0.0",
@@ -52,4 +68,5 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}));
+  };
+});

@@ -10,7 +10,7 @@
       name="description"
       content="Affiliate Hub is a Nigeria-first affiliate platform. Browse products paying up to 50% commission, generate tracked links, share them on WhatsApp, and withdraw to your Nigerian bank, PayPal or USDT."
     />
-    <link rel="canonical" href="https://affiliate-hub.vercel.app/" />
+    <link rel="canonical" href="%VITE_SITE_URL%/" />
 
     <!-- Open Graph. Social crawlers (WhatsApp, X, iMessage) do not execute
          JavaScript, so the default card must be correct in static HTML. The
@@ -22,8 +22,8 @@
       property="og:description"
       content="Browse products paying up to 50% commission, generate tracked links, share on WhatsApp, and withdraw to your Nigerian bank, PayPal or USDT."
     />
-    <meta property="og:url" content="https://affiliate-hub.vercel.app/" />
-    <meta property="og:image" content="https://affiliate-hub.vercel.app/og-image.png" />
+    <meta property="og:url" content="%VITE_SITE_URL%/" />
+    <meta property="og:image" content="%VITE_SITE_URL%/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Affiliate Hub — turn your audience into income" />
@@ -35,7 +35,7 @@
       name="twitter:description"
       content="Browse products paying up to 50% commission, generate tracked links, share on WhatsApp, and withdraw to your Nigerian bank, PayPal or USDT."
     />
-    <meta name="twitter:image" content="https://affiliate-hub.vercel.app/og-image.png" />
+    <meta name="twitter:image" content="%VITE_SITE_URL%/og-image.png" />
 
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
@@ -72,12 +72,12 @@
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "Affiliate Hub",
-        "url": "https://affiliate-hub.vercel.app/",
+        "url": "%VITE_SITE_URL%/",
         "inLanguage": "en-NG",
         "publisher": {
           "@type": "Organization",
           "name": "Affiliate Hub",
-          "url": "https://affiliate-hub.vercel.app/",
+          "url": "%VITE_SITE_URL%/",
           "areaServed": { "@type": "Country", "name": "Nigeria" }
         }
       }

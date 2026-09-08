@@ -409,7 +409,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 | Suite | Command | Result |
 |---|---|---|
 | Backend integration | `npm --prefix api run test` | **60 / 60 passed** |
-| Frontend unit + component | `npm run test` | **62 / 62 passed** |
+| Frontend unit + component | `npm run test` | **73 / 73 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
 | Lint | `npm run lint` | **0 errors**, 15 warnings |
@@ -517,6 +517,41 @@ The harness now walks text nodes to preserve boundaries and scans link attribute
 After the fixes, restoring `$10` fails **2** tests, a wrong support domain fails **1**, and a
 wrong WhatsApp number fails **1** — each verified by patching the source, running the suite,
 and restoring byte-identical.
+
+**The SEO artefacts were generating their own origin.** `Seo.tsx` derives every canonical
+from `config.siteUrl` (`VITE_SITE_URL`), but `index.html` hardcoded the origin six times —
+canonical, `og:url`, `og:image`, `twitter:image` and two JSON-LD urls — and `sitemap.xml`
+and `robots.txt` hardcoded it again. Setting `VITE_SITE_URL` for a real deployment would
+have changed the canonicals while the sitemap kept advertising a different host, which is
+worse than having no sitemap: it actively sends crawlers somewhere else.
+
+`sitemap.xml` also carried a comment claiming `scripts/generate-sitemap.mjs` set `lastmod`
+at build time. **That script did not exist**, and there was no `sitemap` entry in
+`package.json` — another claim in the repository that nothing checked.
+
+Fixed at the root rather than by editing five files:
+
+- `scripts/site-config.mjs` holds `DEFAULT_SITE_URL`, `ROUTES` and `DISALLOWED` — the single
+  source, side-effect free and shebang-free so `vite.config.ts` can import it.
+- `scripts/generate-sitemap.mjs` (now real, and run by `npm run build`) emits
+  `sitemap.xml` and `robots.txt` for the configured origin, with `lastmod`.
+- `index.html` uses Vite's `%VITE_SITE_URL%` substitution.
+- `vite.config.ts` defaults `VITE_SITE_URL` from the same constant when `.env` is absent.
+
+That last one was a build break I introduced and had to fix: `.env` is gitignored, so a
+fresh clone has no `VITE_SITE_URL`, Vite left the literal `%VITE_SITE_URL%` in the HTML, and
+`%VI` is an invalid percent-escape — Vite's HTML parser threw `URI malformed` and the build
+failed. Verified both ways: no `.env` builds and substitutes the default; with
+`VITE_SITE_URL=https://demo.example.org` the built `index.html`, `sitemap.xml` and
+`robots.txt` all carry that origin.
+
+`test/seo-artifacts.test.ts` (11 tests) parses the real `<Route>` declarations out of
+`src/App.tsx` and asserts every guarded route is disallowed, every public route is in the
+sitemap, the generator default equals the `config.ts` default, and the committed artefacts
+are the generator's output. Writing it reproduced my own regression: my first
+`robots.txt` dropped `Disallow: /products/`, and `/products/:slug` sits behind
+`ProtectedRoute`, so a crawler would have indexed empty shells. Mutation-checked — dropping
+that rule again fails **2** tests, and diverging the generator default fails **3**.
 
 **The queue and cron paths are now covered too.** `test/jobs.test.ts` (13 tests) drives
 the payout consumer and all four cron jobs against the worker's *real* bindings — `Env`
