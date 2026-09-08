@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { seedDatabase } from '../scripts/seed-data';
 import { parseSqlStatements } from '../src/lib/sql';
 import type { BankDetails, Page, Product, PublicUser, Transaction } from '../../shared/api-contract';
+import type { Env } from '../src/lib/env';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(here, '..');
@@ -55,6 +56,15 @@ export type TestFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 export interface TestEnv {
   mf: Miniflare;
+  /**
+   * The worker's real bindings, assembled into an `Env`.
+   *
+   * The cron jobs and the queue consumer take an `Env` directly rather than a
+   * `Context`, so testing them needs the actual D1/KV/R2/Queue objects rather
+   * than a stand-in. `getBindings()` returns the same instances the worker
+   * itself uses, so these tests exercise the real code path.
+   */
+  env: Env;
   /**
    * Virtual origin. Requests are dispatched straight into workerd via
    * `dispatchFetch`, so no port is bound and tests cannot collide.
@@ -124,8 +134,19 @@ export async function startWorker(options: { seed?: boolean } = {}): Promise<Tes
   const dispatch: TestFetch = (url, init = {}) =>
     mf.dispatchFetch(url, init as never) as unknown as Promise<Response>;
 
+  const bindings = (await mf.getBindings()) as Record<string, unknown>;
+  const workerEnv: Env = {
+    ...(TEST_BINDINGS as unknown as Env),
+    DB: db,
+    CACHE: bindings.CACHE as Env['CACHE'],
+    ASSETS: bindings.ASSETS as Env['ASSETS'],
+    RATE_LIMIT: bindings.RATE_LIMIT as Env['RATE_LIMIT'],
+    PAYOUTS: bindings.PAYOUTS as Env['PAYOUTS'],
+  };
+
   return {
     mf,
+    env: workerEnv,
     origin,
     fetch: dispatch,
     db,

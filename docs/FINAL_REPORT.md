@@ -408,7 +408,7 @@ Everything below was **actually executed in this environment**. Nothing is proje
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend integration | `npm --prefix api run test` | **47 / 47 passed** |
+| Backend integration | `npm --prefix api run test` | **60 / 60 passed** |
 | Frontend unit + component | `npm run test` | **50 / 50 passed** |
 | Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
 | Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
@@ -473,9 +473,33 @@ money app, since the user cannot even see that something failed. `ErrorBoundary`
 wraps the route tree, keeps a recovery UI with retry and home on screen, and re-logs the
 error rather than swallowing it. Two tests pin both behaviours.
 
-**Not covered:** browser E2E (no Playwright), visual regression, load testing, and the
-queue/cron paths under real Cloudflare timing. These are named as gaps, not implied as
-done.
+**The queue and cron paths are now covered too.** `test/jobs.test.ts` (13 tests) drives
+the payout consumer and all four cron jobs against the worker's *real* bindings — `Env`
+is assembled from live Miniflare D1/KV/R2/Queue objects, not stand-ins — plus the
+`scheduled` and `queue` handlers on the default export. It pins the claims this report
+makes about them:
+
+- Without provider credentials a withdrawal **stays `pending`** and logs
+  `payout_awaiting_provider_configuration`. Mutation-checked: faking it as `completed`
+  fails **4** tests.
+- A redelivered settlement does not double-settle or double-notify.
+- `reconcileWallets` recomputes a corrupted counter from the ledger (199,999 → 100,000)
+  **and** writes a `wallet_reconciliations` row, so drift is recorded rather than
+  silently corrected.
+- `expireStaleWithdrawals` fails and refunds a withdrawal older than 72 h, and leaves a
+  recent one alone.
+- `pruneExpiredSessions` deletes tokens past the 7-day cutoff but **keeps** one that
+  expired an hour ago — freshly-expired tokens are the evidence reuse detection needs.
+- `ensureFxSeed` is idempotent across repeated cron runs.
+
+Writing these corrected two of my own wrong assumptions: withdrawals answer **201**, not
+200, and `refresh_tokens` has no `family_id` column — the family chain is expressed
+through `replaced_by_id`.
+
+**Not covered:** browser E2E (no Playwright), visual regression, and load testing. The
+queue and cron tests invoke the handlers directly rather than through a real Cloudflare
+delivery, so batch timing and retry backoff under production conditions remain
+unverified. These are named as gaps, not implied as done.
 
 ---
 
