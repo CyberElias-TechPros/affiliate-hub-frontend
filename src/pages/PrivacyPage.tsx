@@ -2,10 +2,16 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Seo } from "@/components/seo/Seo";
 
 const PrivacyPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="Privacy policy"
+        description="What Affiliate Hub collects, why, and how it is stored and protected."
+        path="/privacy"
+      />
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4">
@@ -163,7 +169,7 @@ const PrivacyPage = () => {
           <p>© {new Date().getFullYear()} Affiliate Hub. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 

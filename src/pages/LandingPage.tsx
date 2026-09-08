@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContentAd } from "@/components/common/AdBanner";
+import { Seo, organizationSchema } from "@/components/seo/Seo";
 
 /**
  * Landing-page highlights.
@@ -85,7 +86,13 @@ const LandingPage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="Affiliate Hub — Earn commission promoting products in Nigeria"
+        description="Join Affiliate Hub to promote products with tracked links and withdraw your commission to a Nigerian bank account, PayPal or USDT. Free to join."
+        path="/"
+        jsonLd={[organizationSchema]}
+      />
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4">
@@ -355,7 +362,7 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 

@@ -2,6 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ArrowLeft, UserPlus, Search, Link2, Share2, Wallet, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Seo } from "@/components/seo/Seo";
 
 const steps = [
   {
@@ -93,7 +94,12 @@ const faqs = [
 
 const HowItWorksPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="How Affiliate Hub works"
+        description="Sign up, choose products, share tracked links and withdraw your commission. A step-by-step guide to earning with Affiliate Hub."
+        path="/how-it-works"
+      />
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4">
@@ -217,7 +223,7 @@ const HowItWorksPage = () => {
           <p>© {new Date().getFullYear()} Affiliate Hub. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 

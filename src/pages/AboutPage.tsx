@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Users, Target, Heart, Award, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContentAd } from "@/components/common/AdBanner";
+import { Seo } from "@/components/seo/Seo";
 
 const values = [
   {
@@ -36,7 +37,12 @@ const team = [
 
 const AboutPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="About Affiliate Hub"
+        description="How Affiliate Hub works for Nigerian creators and the merchants they promote."
+        path="/about"
+      />
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4">
@@ -202,7 +208,7 @@ const AboutPage = () => {
           </div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 
