@@ -1,247 +1,317 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
-import { TrendingUp, Eye, ShoppingCart, Target, ChevronRight, Zap } from "lucide-react";
-import { BalanceCard } from "@/components/ui/BalanceCard";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronRight, Link2, MousePointerClick, Target, TrendingUp, Zap } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { ContentAd, StickyFooterAd, NativeAd } from "@/components/common/AdBanner";
-import { useAdManager } from "@/contexts/AdManagerContext";
+import { ContentAd } from "@/components/common/AdBanner";
+import { DataErrorState, EmptyState } from "@/components/routing/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
+import { Seo } from "@/components/seo/Seo";
+import { StatsAPI } from "@/lib/api";
+import { formatMoney, money } from "@shared/api-contract";
 
-const statsCards = [
-  { label: "Total Clicks", value: "2,847", change: "+12%", icon: Eye, color: "primary" },
-  { label: "Conversions", value: "156", change: "+8%", icon: ShoppingCart, color: "success" },
-  { label: "Conv. Rate", value: "5.4%", change: "+2.1%", icon: Target, color: "accent" },
-];
-
-const topProducts = [
-  { id: "1", name: "Forex Trading Course", sales: 45, earnings: 202500 },
-  { id: "2", name: "Fitness Watch Pro", sales: 32, earnings: 144000 },
-  { id: "3", name: "Business Masterclass", sales: 28, earnings: 126000 },
-];
-
-const topAffiliates = [
-  { name: "Adebayo T.", earnings: 450000, rank: 1 },
-  { name: "Ngozi O.", earnings: 380000, rank: 2 },
-  { name: "Chinedu M.", earnings: 320000, rank: 3 },
-];
-
-const weeklyData = [
-  { day: "Mon", clicks: 120 },
-  { day: "Tue", clicks: 180 },
-  { day: "Wed", clicks: 150 },
-  { day: "Thu", clicks: 280 },
-  { day: "Fri", clicks: 220 },
-  { day: "Sat", clicks: 350 },
-  { day: "Sun", clicks: 190 },
-];
-
+/**
+ * Performance dashboard.
+ *
+ * Every figure here comes from `/stats/dashboard`, which derives it from real
+ * click and conversion rows. The prototype hardcoded "Chinedu 👋", a
+ * ₦472,500 balance, a 94.5% goal bar and a fixed weekly chart — none of which
+ * changed no matter who signed in.
+ */
 const DashboardPage = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { currentVariant, showInterstitial } = useAdManager();
-  const maxClicks = Math.max(...weeklyData.map((d) => d.clicks));
 
-  // Trigger app open interstitial (A/B tested)
-  React.useEffect(() => {
-    if (currentVariant === 'A') {
-      showInterstitial('app_open');
-    }
-  }, [currentVariant, showInterstitial]);
+  const stats = useQuery({
+    queryKey: ["stats", "dashboard", "30d"],
+    queryFn: () => StatsAPI.dashboard("30d"),
+  });
+
+  const leaderboard = useQuery({
+    queryKey: ["stats", "leaderboard"],
+    queryFn: () => StatsAPI.leaderboard(5),
+  });
+
+  const firstName = user?.name.split(" ")[0] ?? "there";
+  const data = stats.data;
+  const currency = (data?.earnings.currency ?? "NGN") as "NGN" | "USD";
+  const goal = data?.goal;
+  const goalPct = goal ? Math.min(100, (goal.progressMinor / goal.targetMinor) * 100) : 0;
+  const maxClicks = Math.max(1, ...(data?.series.map((d) => d.clicks) ?? [1]));
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-4 gradient-hero">
-        <div className="flex items-center justify-between mb-6">
+    <div className="min-h-screen bg-background pb-28">
+      <Seo title="Dashboard" description="Your affiliate performance." path="/dashboard" robots="noindex, nofollow" />
+
+      <header className="gradient-hero px-4 pb-6 pt-6">
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <p className="text-muted-foreground text-sm">Welcome back,</p>
-            <h1 className="text-xl font-bold font-display text-foreground">Chinedu 👋</h1>
+            <p className="text-sm text-muted-foreground">Welcome back,</p>
+            <h1 className="font-display text-xl font-bold text-foreground">{firstName} 👋</h1>
           </div>
-          <button className="relative p-2 rounded-full bg-card shadow-sm">
+          <Link
+            to="/wallet"
+            className="rounded-full bg-card p-2 shadow-sm"
+            aria-label="Open your wallet"
+          >
             <Zap className="h-5 w-5 text-accent" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
-              3
-            </span>
-          </button>
+          </Link>
         </div>
 
-        {/* Balance Cards */}
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          <div className="min-w-[280px]">
-            <BalanceCard currency="NGN" balance={472500} trend={12} isActive />
+        {stats.isLoading ? (
+          <Skeleton className="h-28 w-full rounded-2xl" />
+        ) : stats.isError ? (
+          <DataErrorState
+            message="We could not load your performance summary."
+            onRetry={() => void stats.refetch()}
+          />
+        ) : (
+          <div className="gradient-primary rounded-2xl p-5 text-primary-foreground shadow-glow">
+            <p className="text-sm text-primary-foreground/80">Available to withdraw</p>
+            <p className="font-display mt-1 text-3xl font-bold tracking-tight">
+              {formatMoney(data?.earnings ?? money(0, currency))}
+            </p>
+            <p className="mt-2 text-sm text-primary-foreground/80">
+              Earned in the last 30 days · {data?.conversions ?? 0} approved sales
+            </p>
           </div>
-          <div className="min-w-[280px]">
-            <BalanceCard currency="USD" balance={315} trend={8} />
-          </div>
-        </div>
-      </div>
+        )}
+      </header>
 
-      {/* Stats Cards */}
-      <div className="px-4 py-4">
-        <div className="grid grid-cols-3 gap-3">
-          {statsCards.map((stat) => (
-            <div
-              key={stat.label}
-              className="bg-card rounded-xl p-3 shadow-card animate-fade-in"
-            >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 ${
-                stat.color === "primary" ? "bg-primary/10 text-primary" :
-                stat.color === "success" ? "bg-success/10 text-success" :
-                "bg-accent/10 text-accent"
-              }`}>
-                <stat.icon className="h-4 w-4" />
-              </div>
-              <p className="text-lg font-bold text-foreground">{stat.value}</p>
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
-              <p className="text-xs text-success font-medium mt-1">{stat.change}</p>
+      <main id="main-content" className="px-4">
+        {stats.isError ? null : (
+          <div className="grid grid-cols-3 gap-3 py-4">
+            <MetricCard
+              label="Clicks"
+              value={String(data?.clicks ?? 0)}
+              icon={MousePointerClick}
+              tone="primary"
+            />
+            <MetricCard
+              label="Sales"
+              value={String(data?.conversions ?? 0)}
+              icon={TrendingUp}
+              tone="success"
+            />
+            <MetricCard
+              label="Conv. rate"
+              value={`${(((data?.conversionRateBps ?? 0) / 100).toFixed(1))}%`}
+              icon={Target}
+              tone="accent"
+            />
+          </div>
+        )}
+
+        {/* Weekly clicks, zero-filled so a day with no traffic still appears.
+            Summing only non-empty days would make the x-axis lie. */}
+        <section className="py-4" aria-labelledby="weekly-heading">
+          <div className="bg-card rounded-xl p-4 shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="weekly-heading" className="font-semibold text-foreground">
+                Daily clicks
+              </h2>
+              <span className="text-xs text-muted-foreground">Last {data?.series.length ?? 0} days</span>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Native Ad - A/B Tested */}
-      {currentVariant === 'B' && (
-        <NativeAd />
-      )}
-
-      {/* Weekly Performance Chart */}
-      <div className="px-4 py-4">
-        <div className="bg-card rounded-xl p-4 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-foreground">Weekly Clicks</h2>
-            <span className="text-xs text-muted-foreground">Last 7 days</span>
-          </div>
-          <div className="flex items-end justify-between h-32 gap-2">
-            {weeklyData.map((data, index) => {
-              const height = (data.clicks / maxClicks) * 100;
-              return (
-                <div key={data.day} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full relative" style={{ height: `${height}%` }}>
-                    <div
-                      className="w-full h-full rounded-t-md gradient-primary animate-fade-up"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{data.day}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Top Products */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-foreground">Top Performers</h2>
-          <button className="text-sm text-primary font-medium flex items-center">
-            View all <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="space-y-3">
-          {topProducts.map((product, index) => (
-            <div
-              key={product.id}
-              className="flex items-center gap-3 bg-card rounded-xl p-3 shadow-card animate-slide-in-right"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-primary-foreground font-bold">
-                #{index + 1}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">{product.name}</p>
-                <p className="text-sm text-muted-foreground">{product.sales} sales</p>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-success">₦{product.earnings.toLocaleString()}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Leaderboard */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-foreground">Top Affiliates</h2>
-          <button className="text-sm text-primary font-medium flex items-center">
-            View all <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="bg-card rounded-xl p-4 shadow-card">
-          <div className="space-y-3">
-            {topAffiliates.map((affiliate, index) => (
+            {stats.isLoading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : !data || data.clicks === 0 ? (
+              <EmptyState
+                title="No clicks yet"
+                description="Generate a link for a product and share it — your clicks will show up here."
+                action={
+                  <Button size="sm" onClick={() => navigate("/marketplace")}>
+                    Find a product
+                  </Button>
+                }
+              />
+            ) : (
               <div
-                key={affiliate.rank}
-                className="flex items-center gap-3"
+                className="flex h-32 items-end justify-between gap-1.5"
+                role="img"
+                aria-label={`Daily clicks over the last ${data.series.length} days, peaking at ${maxClicks}`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  affiliate.rank === 1 ? "gradient-gold text-accent-foreground" :
-                  affiliate.rank === 2 ? "bg-muted text-muted-foreground" :
-                  "bg-muted text-muted-foreground"
-                }`}>
-                  {affiliate.rank}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-foreground">{affiliate.name}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-success">₦{affiliate.earnings.toLocaleString()}</p>
-                </div>
+                {data.series.map((day) => {
+                  const height = (day.clicks / maxClicks) * 100;
+                  return (
+                    <div key={day.date} className="flex flex-1 flex-col items-center gap-2">
+                      <div className="relative w-full" style={{ height: `${Math.max(2, height)}%` }}>
+                        <div
+                          className="gradient-primary h-full w-full rounded-t-md"
+                          title={`${day.clicks} clicks on ${day.date}`}
+                        />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(day.date).toLocaleDateString("en-NG", { weekday: "narrow" })}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Goal Tracker */}
-      <div className="px-4 py-4">
-        <div className="bg-card rounded-xl p-4 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-foreground">Monthly Goal</h2>
-            <span className="text-sm text-muted-foreground">₦500,000</span>
+        {/* Top products */}
+        <section className="py-4" aria-labelledby="top-products-heading">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 id="top-products-heading" className="font-semibold text-foreground">
+              Top performers
+            </h2>
+            <Link to="/stats" className="flex items-center text-sm font-medium text-primary">
+              View all <ChevronRight className="h-4 w-4" />
+            </Link>
           </div>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium text-foreground">₦472,500 / ₦500,000</span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div className="gradient-primary h-2 rounded-full" style={{ width: "94.5%" }}></div>
-            </div>
-            <p className="text-xs text-muted-foreground text-center">27,500 to go!</p>
-          </div>
-        </div>
-      </div>
 
-      {/* Ad Section */}
-      <div className="px-4 py-4">
-        <div className="flex justify-center">
+          {stats.isLoading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : data && data.topProducts.length > 0 ? (
+            <div className="space-y-3">
+              {data.topProducts.map((product, index) => (
+                <div key={product.productId} className="bg-card flex items-center gap-3 rounded-xl p-3 shadow-card">
+                  <div className="gradient-primary flex h-10 w-10 items-center justify-center rounded-xl font-bold text-primary-foreground">
+                    #{index + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-foreground">{product.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {product.conversions} sale{product.conversions === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <p className="font-bold text-success">{formatMoney(product.earnings)}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="No sales yet" description="Your best-performing products will appear here." />
+          )}
+        </section>
+
+        {/* Goal */}
+        {goal && (
+          <section className="py-4" aria-labelledby="goal-heading">
+            <div className="bg-card rounded-xl p-4 shadow-card">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 id="goal-heading" className="font-semibold text-foreground">
+                  Monthly goal
+                </h2>
+                <Link to="/settings" className="text-sm font-medium text-primary">
+                  Edit
+                </Link>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Progress</span>
+                  <span className="font-medium text-foreground">
+                    {formatMoney(money(goal.progressMinor, goal.currency))} of{" "}
+                    {formatMoney(money(goal.targetMinor, goal.currency))}
+                  </span>
+                </div>
+                <div
+                  className="h-2 w-full rounded-full bg-muted"
+                  role="progressbar"
+                  aria-valuenow={Math.round(goalPct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label="Progress towards your monthly goal"
+                >
+                  <div
+                    className="gradient-primary h-2 rounded-full transition-[width] duration-500"
+                    style={{ width: `${goalPct}%` }}
+                  />
+                </div>
+                <p className="text-center text-xs text-muted-foreground">
+                  {goal.progressMinor >= goal.targetMinor
+                    ? "Goal reached. Set a bigger one."
+                    : `${formatMoney(money(goal.targetMinor - goal.progressMinor, goal.currency))} to go`}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Leaderboard — handles are pseudonymised server-side. */}
+        {leaderboard.data && leaderboard.data.entries.length > 0 && (
+          <section className="py-4" aria-labelledby="leaderboard-heading">
+            <h2 id="leaderboard-heading" className="mb-3 font-semibold text-foreground">
+              Top affiliates this month
+            </h2>
+            <div className="bg-card rounded-xl p-4 shadow-card">
+              <ol className="space-y-3">
+                {leaderboard.data.entries.map((entry) => (
+                  <li key={`${entry.rank}-${entry.handle}`} className="flex items-center gap-3">
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                        entry.rank === 1 ? "gradient-gold text-accent-foreground" : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {entry.rank}
+                    </span>
+                    <span className="flex-1 font-medium text-foreground">{entry.handle}</span>
+                    <span className="font-bold text-success">{formatMoney(entry.earnings)}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        <div className="flex justify-center py-4">
           <ContentAd />
         </div>
-      </div>
 
-      {/* Quick Action */}
-      <div className="px-4 py-4">
-        <button
-          onClick={() => navigate("/marketplace")}
-          className="w-full flex items-center justify-between p-4 rounded-xl gradient-gold text-accent-foreground shadow-lg"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-accent-foreground/10 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-            <div className="text-left">
-              <p className="font-semibold">Find New Products</p>
-              <p className="text-sm opacity-80">Explore high-commission offers</p>
-            </div>
-          </div>
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
+        <div className="py-4">
+          <button
+            type="button"
+            onClick={() => navigate("/marketplace")}
+            className="gradient-gold flex w-full items-center justify-between rounded-xl p-4 text-left shadow-lg"
+          >
+            <span className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+                <Link2 className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block font-semibold">Find new products</span>
+                <span className="block text-sm opacity-80">Explore high-commission offers</span>
+              </span>
+            </span>
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      </main>
 
       <BottomNav />
-      <StickyFooterAd />
     </div>
   );
 };
+
+const MetricCard: React.FC<{
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "primary" | "success" | "accent";
+}> = ({ label, value, icon: Icon, tone }) => (
+  <div className="bg-card animate-fade-in rounded-xl p-3 shadow-card">
+    <div
+      className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${
+        tone === "primary"
+          ? "bg-primary/10 text-primary"
+          : tone === "success"
+            ? "bg-success/10 text-success"
+            : "bg-accent/10 text-accent"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+    </div>
+    <p className="text-lg font-bold text-foreground">{value}</p>
+    <p className="text-xs text-muted-foreground">{label}</p>
+  </div>
+);
 
 export default DashboardPage;

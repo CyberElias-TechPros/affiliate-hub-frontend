@@ -7,11 +7,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { ContentAd } from "@/components/common/AdBanner";
 
+/**
+ * Landing-page highlights.
+ *
+ * The prototype led with "₦50M+ paid", "15,000+ affiliates", "500+ products" and
+ * "98% payout rate" — none of which were backed by anything, in a product that has
+ * not processed a payout. Those are the kind of claims a competitor can screenshot
+ * and an advertiser can complain about.
+ *
+ * What follows is all verifiable from the product itself: the commission ceiling is
+ * the highest `commissionBps` any merchant has configured, and the payout methods are
+ * the ones the wallet actually supports.
+ */
 const stats = [
-  { value: "₦50M+", label: "Paid to Affiliates" },
-  { value: "15,000+", label: "Active Affiliates" },
-  { value: "500+", label: "Products" },
-  { value: "98%", label: "Payout Rate" },
+  { value: "Up to 50%", label: "Commission on eligible products" },
+  { value: "3", label: "Payout methods: bank, PayPal, USDT" },
+  { value: "30 days", label: "Typical cookie window" },
+  { value: "Free", label: "To join and to withdraw by bank transfer" },
 ];
 
 const features = [
@@ -37,30 +49,35 @@ const features = [
   },
 ];
 
-const testimonials = [
+/**
+ * The prototype published three named testimonials with earnings claims
+ * ("₦2M in 6 months", "doubled my earnings") attributed to people who do not exist.
+ * Invented endorsements are a consumer-protection problem, not a copywriting one.
+ *
+ * Until there are real affiliates willing to be quoted by name, this section states
+ * what the product does instead of pretending people have vouched for it.
+ */
+const highlights = [
   {
-    name: "Emeka Okafor",
-    role: "Tech Blogger",
-    image: "EO",
-    text: "I've made over ₦2M in 6 months promoting digital products. The platform is incredibly easy to use.",
+    title: "Built for WhatsApp",
+    description:
+      "Every product ships with a ready-to-paste caption and shareable images, because that is where Nigerian audiences actually convert.",
   },
   {
-    name: "Amaka Udo",
-    role: "Social Media Influencer",
-    image: "AU",
-    text: "Fast payouts and great support. I recommend Affiliate Hub to everyone who wants to monetize their audience.",
+    title: "You can see how you're paid",
+    description:
+      "Commission moves from pending to available when the merchant confirms the sale. Fees and minimums are shown before you confirm a withdrawal, not after.",
   },
   {
-    name: "John Dada",
-    role: "Content Creator",
-    image: "JD",
-    text: "The commission rates are unbeatable. I switched from other platforms and doubled my earnings.",
+    title: "Your bank details stay private",
+    description:
+      "Account numbers are encrypted before they are stored and shown back to you masked. Support staff cannot read the full number.",
   },
 ];
 
 const steps = [
   { step: "1", title: "Sign Up Free", description: "Create your account in under 60 seconds" },
-  { step: "2", title: "Choose Products", description: "Browse our marketplace of 500+ products" },
+  { step: "2", title: "Choose Products", description: "Browse the marketplace and compare commission rates" },
   { step: "3", title: "Share & Earn", description: "Promote your links and earn commissions" },
 ];
 
@@ -138,15 +155,15 @@ const LandingPage = () => {
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-fade-in">
               <Star className="h-4 w-4 fill-current" />
-              Nigeria's #1 Affiliate Platform
+              Built for Nigerian creators
             </div>
             <h1 className="text-4xl md:text-6xl font-bold font-display text-foreground mb-6 animate-fade-up">
               Turn Your Audience Into{" "}
               <span className="text-primary">Income</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8 animate-fade-up" style={{ animationDelay: "100ms" }}>
-              Earn up to 50% commission promoting products you believe in. 
-              Join 15,000+ affiliates making money with Affiliate Hub.
+              Earn up to 50% commission promoting products you believe in.
+              Free to join, with payouts to your Nigerian bank, PayPal or USDT.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up" style={{ animationDelay: "200ms" }}>
               <Link to="/auth">
@@ -229,37 +246,33 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* Why affiliates choose us.
+
+          This replaced a "Loved by Affiliates" block of three named testimonials
+          with earnings claims attributed to people who do not exist. Until there
+          are real affiliates willing to be quoted by name, the page describes the
+          product rather than inventing endorsements for it. */}
       <section className="py-20 md:py-32">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold font-display text-foreground mb-4">
-              Loved by Affiliates
+              Built around how you actually promote
             </h2>
-            <p className="text-lg text-muted-foreground">See what our top earners have to say</p>
+            <p className="text-lg text-muted-foreground">
+              No invented success stories — just what the platform does.
+            </p>
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {testimonials.map((testimonial, index) => (
+            {highlights.map((item, index) => (
               <div
-                key={testimonial.name}
+                key={item.title}
                 className="bg-card rounded-2xl p-6 shadow-card animate-fade-up"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="flex items-center gap-1 text-accent mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-current" />
-                  ))}
-                </div>
-                <p className="text-foreground mb-6">"{testimonial.text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-semibold text-sm">
-                    {testimonial.image}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{testimonial.name}</p>
-                    <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                  </div>
-                </div>
+                <h3 className="font-display mb-3 text-lg font-semibold text-foreground">
+                  {item.title}
+                </h3>
+                <p className="text-muted-foreground">{item.description}</p>
               </div>
             ))}
           </div>

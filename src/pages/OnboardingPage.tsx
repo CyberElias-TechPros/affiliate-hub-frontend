@@ -1,171 +1,208 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Check } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CustomInput } from "@/components/ui/CustomInput";
 import { CountryDropdown } from "@/components/ui/CountryDropdown";
+import { Seo } from "@/components/seo/Seo";
+import { useAuth } from "@/contexts/AuthContext";
+import { ApiClientError, AuthAPI } from "@/lib/api";
 
-const niches = [
+const NICHES = [
   { id: "tech", label: "Technology", emoji: "💻" },
   { id: "health", label: "Health & Fitness", emoji: "💪" },
   { id: "finance", label: "Finance", emoji: "💰" },
   { id: "beauty", label: "Beauty", emoji: "✨" },
   { id: "education", label: "Education", emoji: "📚" },
   { id: "lifestyle", label: "Lifestyle", emoji: "🏠" },
-];
+] as const;
 
+/**
+ * Onboarding wizard.
+ *
+ * The prototype collected a country, niches and a WhatsApp number and then
+ * threw all three away — `handleComplete` was just `navigate("/dashboard")`.
+ * Nothing was persisted, so the very next page load showed none of it.
+ */
 const OnboardingPage = () => {
   const navigate = useNavigate();
+  const { user, setUser } = useAuth();
+
   const [step, setStep] = React.useState(1);
-  const [country, setCountry] = React.useState("NG");
-  const [selectedNiches, setSelectedNiches] = React.useState<string[]>([]);
-  const [whatsapp, setWhatsapp] = React.useState("");
+  const [country, setCountry] = React.useState(user?.country ?? "NG");
+  const [selectedNiches, setSelectedNiches] = React.useState<string[]>(user?.niches ?? []);
+  const [whatsapp, setWhatsapp] = React.useState(user?.whatsapp ?? "");
+  const [whatsappError, setWhatsappError] = React.useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: () =>
+      AuthAPI.completeOnboarding({
+        country,
+        niches: selectedNiches,
+        whatsapp: whatsapp.trim() || null,
+      }),
+    onSuccess: ({ user: updated }) => {
+      setUser(updated);
+      toast.success("You're all set");
+      navigate("/dashboard", { replace: true });
+    },
+    onError: (error) => {
+      if (error instanceof ApiClientError && error.fields.whatsapp) {
+        setWhatsappError(error.fields.whatsapp);
+        setStep(3);
+      }
+      toast.error(error instanceof ApiClientError ? error.message : "We could not save that. Please try again.");
+    },
+  });
 
   const toggleNiche = (id: string) => {
-    setSelectedNiches((prev) =>
-      prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]
-    );
+    setSelectedNiches((prev) => (prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]));
   };
 
-  const handleComplete = () => {
-    navigate("/dashboard");
+  const validateWhatsapp = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null; // optional
+    return /^\+[1-9]\d{7,14}$/.test(trimmed) ? null : "Enter a full international number, e.g. +2348012345678";
+  };
+
+  const advance = () => {
+    if (step < 3) {
+      setStep(step + 1);
+      return;
+    }
+    const issue = validateWhatsapp(whatsapp);
+    if (issue) {
+      setWhatsappError(issue);
+      return;
+    }
+    save.mutate();
   };
 
   return (
-    <div className="min-h-screen flex flex-col gradient-hero">
-      {/* Progress Bar */}
+    <div className="gradient-hero flex min-h-screen flex-col">
+      <Seo
+        title="Set up your account"
+        description="Tell us about your audience so we can show you relevant products."
+        path="/onboarding"
+        robots="noindex, nofollow"
+      />
+
       <div className="px-6 pt-6">
-        <div className="flex gap-2">
+        <div className="flex gap-2" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step} aria-label={`Step ${step} of 3`}>
           {[1, 2, 3].map((s) => (
-            <div
-              key={s}
-              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                s <= step ? "gradient-primary" : "bg-muted"
-              }`}
-            />
+            <div key={s} className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${s <= step ? "gradient-primary" : "bg-muted"}`} />
           ))}
         </div>
-        <p className="text-sm text-muted-foreground mt-3">Step {step} of 3</p>
+        <p className="mt-3 text-sm text-muted-foreground">Step {step} of 3</p>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 px-6 py-8">
+      <main id="main-content" className="flex-1 px-6 py-8">
         {step === 1 && (
           <div className="animate-fade-in">
-            <h1 className="text-2xl font-bold font-display text-foreground mb-2">
-              Where are you based?
-            </h1>
-            <p className="text-muted-foreground mb-8">
-              We'll show you products and payouts relevant to your region.
-            </p>
-            <CountryDropdown
-              value={country}
-              onChange={setCountry}
-              label="Select your country"
-            />
+            <h1 className="font-display text-2xl font-bold text-foreground">Where are you based?</h1>
+            <p className="mb-8 mt-1 text-muted-foreground">We use this to show you relevant payouts and currencies.</p>
+            <CountryDropdown value={country} onChange={setCountry} label="Select your country" />
           </div>
         )}
 
         {step === 2 && (
           <div className="animate-fade-in">
-            <h1 className="text-2xl font-bold font-display text-foreground mb-2">
-              Pick your niches
-            </h1>
-            <p className="text-muted-foreground mb-8">
-              Select the categories you want to promote. You can change this later.
+            <h1 className="font-display text-2xl font-bold text-foreground">Pick your niches</h1>
+            <p className="mb-8 mt-1 text-muted-foreground">
+              Choose what your audience cares about. You can change this later in settings.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              {niches.map((niche) => {
+            <div className="grid grid-cols-2 gap-3" role="group" aria-label="Choose your niches">
+              {NICHES.map((niche) => {
                 const isSelected = selectedNiches.includes(niche.id);
                 return (
                   <button
                     key={niche.id}
+                    type="button"
                     onClick={() => toggleNiche(niche.id)}
-                    className={`relative flex items-center gap-3 p-4 rounded-xl border-2 transition-all duration-200 ${
-                      isSelected
-                        ? "border-primary bg-primary/5"
-                        : "border-border bg-card hover:border-primary/30"
+                    aria-pressed={isSelected}
+                    className={`relative flex items-center gap-3 rounded-xl border-2 p-4 transition-all duration-200 ${
+                      isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/30"
                     }`}
                   >
-                    <span className="text-2xl">{niche.emoji}</span>
-                    <span className="font-medium text-sm text-left">{niche.label}</span>
+                    <span className="text-2xl" aria-hidden="true">
+                      {niche.emoji}
+                    </span>
+                    <span className="text-left text-sm font-medium">{niche.label}</span>
                     {isSelected && (
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full gradient-primary flex items-center justify-center">
-                        <Check className="h-3 w-3 text-primary-foreground" />
-                      </div>
+                      <span className="gradient-primary absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full">
+                        <Check className="h-3 w-3 text-primary-foreground" aria-hidden="true" />
+                      </span>
                     )}
                   </button>
                 );
               })}
             </div>
+            {selectedNiches.length === 0 && (
+              <p className="mt-4 text-sm text-muted-foreground">Select at least one to continue.</p>
+            )}
           </div>
         )}
 
         {step === 3 && (
           <div className="animate-fade-in">
-            <h1 className="text-2xl font-bold font-display text-foreground mb-2">
-              Connect WhatsApp
-            </h1>
-            <p className="text-muted-foreground mb-8">
-              We'll send important notifications about your sales to WhatsApp.
+            <h1 className="font-display text-2xl font-bold text-foreground">Connect WhatsApp</h1>
+            <p className="mb-8 mt-1 text-muted-foreground">
+              Optional. We will let you know here when you make a sale.
             </p>
             <CustomInput
-              label="WhatsApp Number"
+              id="onboarding-whatsapp"
+              label="WhatsApp number"
               placeholder="+234 801 234 5678"
               type="tel"
               value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
+              onChange={(e) => {
+                setWhatsapp(e.target.value);
+                setWhatsappError(null);
+              }}
+              error={whatsappError ?? undefined}
+              hint="Include your country code, e.g. +234."
             />
-            <div className="mt-6 p-4 rounded-xl bg-success/5 border border-success/20">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.489l4.614-1.467A11.946 11.946 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.32 0-4.47-.73-6.24-1.97l-.36-.22-2.74.87.92-2.67-.24-.38A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-                  </svg>
-                </div>
-                <div>
-                  <p className="font-medium text-foreground text-sm">Get instant notifications</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Know immediately when you make a sale!
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Footer */}
-      <div className="px-6 pb-8">
+      <footer className="px-6 pb-8">
         <div className="flex gap-3">
           {step > 1 && (
-            <Button
-              variant="outline"
-              onClick={() => setStep(step - 1)}
-              className="flex-1 h-12 rounded-xl"
-            >
+            <Button variant="outline" onClick={() => setStep(step - 1)} className="h-12 flex-1 rounded-xl" disabled={save.isPending}>
               Back
             </Button>
           )}
           <Button
-            onClick={() => (step < 3 ? setStep(step + 1) : handleComplete())}
-            disabled={step === 2 && selectedNiches.length === 0}
-            className="flex-1 h-12 gradient-primary text-primary-foreground font-semibold rounded-xl shadow-glow hover:opacity-90 transition-all duration-200"
+            onClick={advance}
+            disabled={(step === 2 && selectedNiches.length === 0) || save.isPending}
+            className="gradient-primary h-12 flex-1 rounded-xl font-semibold text-primary-foreground shadow-glow"
           >
-            <span>{step === 3 ? "Get Started" : "Continue"}</span>
-            <ArrowRight className="h-5 w-5 ml-2" />
+            {save.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <span>{step === 3 ? "Get started" : "Continue"}</span>
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </>
+            )}
           </Button>
         </div>
-        {step === 3 && (
+        {step === 3 && !save.isPending && (
           <button
-            onClick={handleComplete}
-            className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            type="button"
+            onClick={() => save.mutate()}
+            className="mt-4 w-full text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             Skip for now
           </button>
         )}
-      </div>
+      </footer>
     </div>
   );
 };

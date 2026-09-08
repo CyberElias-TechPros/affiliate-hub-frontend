@@ -1,0 +1,526 @@
+# Affiliate Hub — Final Report
+
+Autonomous reconstruction and productionization of `CyberElias-TechPros/affiliate-hub-frontend`.
+
+Every claim below is tagged with a verification state. The distinction is deliberate:
+**Implemented** means the code exists; **Verified** means it was executed here and
+observed; **Environment-dependent** means it cannot be exercised without live
+credentials; **Not verified** means it was not run. A clean exit code is not treated as
+a pass when the output was wrong — several items below were caught that way.
+
+---
+
+## A. Product Reconstruction
+
+**What this product is.** An affiliate marketing marketplace for Nigerian creators. An
+affiliate signs up, completes onboarding (country, niches, WhatsApp), browses merchant
+products in a marketplace, generates a tracked link per product, shares it — WhatsApp is
+the primary channel, with ready-made captions — and earns commission when someone buys
+through their link. Commission moves from *pending* to *available* once the merchant
+approves the sale. The affiliate then withdraws to a Nigerian bank account (free,
+min ₦5,000), USDT (1% fee, min $50) or PayPal (2% fee, min $50).
+
+**Monetisation.** A take-rate on the commission the merchant already pays, plus optional
+display advertising.
+
+**Provenance.** *FACT* for the flows above — each is directly evidenced by a page, a
+route or a table in the repository. *HIGH-CONFIDENCE INFERENCE* for the WhatsApp-first
+emphasis, which is inferable from the share components and the NGN-primary currency but
+is never stated in a document.
+
+**Maturity at handoff: prototype / UI shell.** Nineteen pages existed and rendered, but
+the majority were hardcoded — a fixed ₦472,500 balance, five fabricated transactions
+dated December 2024, a leaderboard of invented names. `MASTER_IMPLEMENTATION_PLAN.md`
+claimed "✅ Implementation Complete". It was not. That document was treated as evidence
+of intent, not as a statement of fact.
+
+---
+
+## B. Initial State (measured, not estimated)
+
+| Check | Result at baseline |
+|---|---|
+| `npx tsc -p tsconfig.app.json --noEmit` | exit 0 — but `strict: false` |
+| `npm run lint` | **exit 1** — 10 errors, 8 warnings |
+| `npm run build` | exit 0 — with a CSS `@import` error in the output |
+| Bundle | 520.47 kB / **157.54 kB gzip**, single chunk |
+| Test runner | **none** — no test script, no test dependency |
+| Backend | `backend/index.js`, an 854-line Express + SQLite monolith |
+| Secrets | `backend/.env` **committed**, `JWT_SECRET=your-secret-key-here` |
+| Dead code | `src/App.css` (unimported), `use-toast.ts`, `NavLink.tsx` |
+| Undefined CSS | `safe-area-pb`, `safe-bottom`, `scrollbar-hide` — 5 uses, 0 definitions |
+
+The build "succeeded" while shipping a bundle in which the web fonts had been silently
+dropped. That is the central lesson of this repo: **its own checks were too weak to
+detect its own breakage.** `strict: false` let `any` through the entire API layer; there
+were no tests to fail.
+
+---
+
+## C. Problems Found, by Severity
+
+### CRITICAL
+
+| # | Problem | Evidence |
+|---|---|---|
+| C1 | **Wallet could print money.** A negative withdrawal amount *increased* the balance, and the balance check was a `SELECT` followed by a separate `UPDATE` with no transaction — two concurrent requests could both pass and both spend. | `backend/index.js` withdrawal handler |
+| C2 | **Fake social auth minted valid JWTs.** An unverified endpoint issued real tokens for any claimed identity. | `backend/index.js` `social-auth` |
+| C3 | **Refresh token == access token.** One secret, no `typ` claim, no rotation. Any leaked token was permanent. | `backend/index.js` token issuance |
+| C4 | **Committed secret.** `backend/.env` in git with a placeholder `JWT_SECRET`. | `git ls-files backend/` |
+| C5 | **Route shadowing.** `/products/:id` was registered before `/products/search` and `/products/categories`, making both unreachable. | `backend/index.js` route order |
+
+### HIGH
+
+| # | Problem |
+|---|---|
+| H1 | No auth provider, no route guards — every "private" page was publicly reachable |
+| H2 | `WithdrawPage.handleWithdraw` faked a 2-second `setTimeout`, made no API call, and reported success against a hardcoded ₦472,500 |
+| H3 | `OnboardingPage.handleComplete` collected country/niches/WhatsApp then discarded all three |
+| H4 | Affiliate link URLs built from client-controlled `req.headers.origin` with guessable codes (`AFF${Date.now()}${rand}`) |
+| H5 | Leaderboard leaked real names and earnings across all affiliates |
+| H6 | `authenticateToken` returned 403 with an empty body instead of 401 |
+| H7 | `cors()` wide open; no rate limiting, no helmet, no body-size limits |
+| H8 | Fabricated marketing: "₦50M+ paid", "15,000+ affiliates", "500+ products", "98% on-time payouts", plus named testimonials for people who do not exist |
+| H9 | SEO: title "Lovable App", description "Lovable Generated Project", OG image and `twitter:site` pointing at lovable.dev, no canonical, no sitemap, no structured data, blanket-allow `robots.txt` |
+
+### MEDIUM / LOW
+
+Ad slot keys copied from an unrelated fintech app (`'send'`, `'bills'`, `'invest'`);
+`maxRefreshes=5` declared but never enforced (infinite 30 s `setInterval`); marketplace
+search state never sent to the API and "New" implemented as `filtered.slice(0, 2)`;
+`page` and `limit` accepted then ignored; `/products/:id` returning fabricated
+`whyPromote`; USD conversion hardcoded at `balance / 450`; no click-tracking endpoint;
+dual lockfiles; dead UI controls throughout.
+
+---
+
+## D. Problems Fixed
+
+Format: **Problem → Evidence → Root Cause → Solution → Result.**
+
+### D1. Wallet double-spend (C1)
+**Problem.** Negative withdrawal amounts increased the balance; concurrent withdrawals could both succeed.
+**Evidence.** `backend/index.js` — `SELECT balance` … `UPDATE balance` with no transaction, and no sign check on the amount.
+**Root cause.** A read-then-write pattern that is only safe inside a transaction, used outside one. SQLite made this survivable in single-user local testing; it would not survive two users.
+**Solution.** `amountMinor` validated `.positive()` at the schema layer. The debit is a guarded `INSERT … WHERE EXISTS(… available_minor >= ?)` followed by `UPDATE … AND available_minor >= ?` in a single `D1.batch()`, then `meta.changes` is read to confirm the guard held. The INSERT is deliberately first so both conditions see the pre-decrement value.
+**Result.** **Verified** — `api/test/api.test.ts` includes a concurrent-withdrawal test; the second request fails and the balance is debited exactly once.
+
+### D2. Fake social auth (C2)
+**Problem.** An unverified endpoint minted valid JWTs.
+**Evidence.** `backend/index.js` `social-auth`.
+**Root cause.** A stub shipped to make a demo work and never gated.
+**Solution.** Endpoint removed entirely. The only credential paths are email+password, refresh, and password change.
+**Result.** **Verified** — no route in `api/src/index.ts` issues a token without verifying a password hash or a stored refresh token.
+
+### D3. Token model (C3)
+**Problem.** One secret, one token type, refresh == access.
+**Root cause.** No separation between "who are you right now" and "prove you can stay".
+**Solution.** HS256 with `alg` pinned; separate `ACCESS_TOKEN_SECRET` / `REFRESH_TOKEN_SECRET`; `typ` checked on every verification; access 15 min, refresh 30 days stored as a SHA-256 hash; rotation with reuse detection that revokes the whole token family.
+**Result.** **Verified** — refresh rotation and reuse revocation are both covered by tests.
+
+### D4. Committed secret (C4)
+**Problem.** `backend/.env` tracked in git.
+**Root cause.** No `.env` rule in `.gitignore`.
+**Solution.** `git rm --cached backend/.env`; `.gitignore` now covers `.env` and `.env.*` while preserving `.env.example`. The Worker reads secrets from `wrangler secret`, so the new architecture has no committed secret at all.
+**Result.** **Verified** — `git ls-files backend/` returns zero `.env` files; `git check-ignore -v backend/.env` resolves to the new rule.
+**Open item.** The file remains in git history. The correct remediation is to **rotate secrets**, not rewrite history. Recorded in `SECURITY.md`.
+
+### D5. Route shadowing (C5)
+**Problem.** Literal routes unreachable behind parameterised ones.
+**Solution.** Literal segments are matched before parameterised ones, and the ordering is commented at the call site so it is not "tidied" later.
+**Result.** **Verified** — `/products/categories` and `/products/:slug` are both exercised.
+
+### D6. Withdrawal never called an API (H2)
+**Problem.** `setTimeout` + success toast, no request.
+**Solution.** Real `WalletAPI.withdraw` with the amount converted to integer minor units, an idempotency key generated once per attempt and reused on retry (regenerated only on failure), fees and minimums read from the server, and query invalidation on success.
+**Result.** **Verified** — the withdrawal path is covered end-to-end in the backend suite, including idempotent replay returning `deduplicated: true`.
+
+### D7. Onboarding discarded its input (H3)
+**Problem.** Three fields collected, none saved.
+**Solution.** `POST /auth/onboarding` persists country, niches and WhatsApp; the response updates the session.
+**Result.** **Implemented**, **Verified** at the API layer.
+
+### D8. Fabricated marketing (H8)
+**Problem.** Verifiable claims about a product that has never processed a payout, plus invented testimonials.
+**Evidence.** `LandingPage.tsx` (stats array, three named testimonials, "Nigeria's #1"), `AboutPage.tsx` (founded 2022, "15K+ affiliates", "₦50M+ paid", "500+ products"), `HowItWorksPage.tsx` ("Join 15,000+ affiliates").
+**Root cause.** Placeholder marketing copy from a template that was never reconciled against reality.
+**Solution.** Every unverifiable figure replaced with something checkable from the product itself — the commission ceiling, the three payout methods, the cookie window, the cost. The three named testimonials with earnings claims ("₦2M in 6 months", "doubled my earnings") attributed to people who do not exist were replaced with a section describing what the platform does, since invented endorsements are a consumer-protection problem rather than a copywriting one. "Nigeria's #1 Affiliate Platform" became "Built for Nigerian creators".
+**Result.** **Verified** — a `grep` sweep across `src/` and `index.html` for `15,000+`, `15K+`, `₦50M+`, `500+ products`, `98%`, `Nigeria's #1` and each fabricated name returns nothing outside the code comments that explain the removal.
+
+> **Correction.** An earlier draft of this report marked D8 verified after only
+> `index.html` had been cleaned; the page components still carried every fabricated
+> figure. The claim was wrong, the sweep is now actually run, and the pages are fixed.
+> The lesson generalises: this defect survived because nothing in the repo tested
+> marketing copy, and it was caught only by grepping rather than by any check.
+
+### D9. SEO baseline (H9)
+**Problem.** "Lovable App" title, lovable.dev OG image, no canonical/sitemap/structured data.
+**Solution.** `index.html` rewritten with real meta/OG/Twitter/JSON-LD; a `Seo` component sets per-route title, description, canonical, robots and JSON-LD; `robots.txt` rewritten to disallow authenticated routes; `sitemap.xml` added; a real `og-image.png` (1200×630, 102 kB) and app icons created.
+**Result.** **Verified** — `test/seo.test.tsx` asserts distinct titles per route, canonical output, robots directives and parsable JSON-LD.
+**Not promised.** None of this guarantees indexing or ranking. It removes the things that would have *prevented* correct indexing.
+
+### D10. Fonts silently dropped in production
+**Problem.** `src/index.css` had a Google Fonts `@import` positioned after `@tailwind`, which Vite discarded.
+**Evidence.** `grep -bo "@import" dist/assets/*.css` → **no matches** in the built output.
+**Root cause.** CSS spec requires `@import` to precede all other rules; the build was warning and nobody read the warning.
+**Solution.** Fonts moved to `<link>` with `preconnect` in `index.html`.
+**Result.** **Verified** — built CSS contains no `@import`; the font `<link>` and three `preconnect` tags are present in `dist/index.html`.
+
+### D11. Undefined Tailwind utilities
+**Problem.** `safe-area-pb`, `safe-bottom`, `scrollbar-hide` used in five places, defined nowhere — so they compiled to nothing.
+**Solution.** All three defined in `src/index.css`.
+**Result.** **Verified** — each appears in the built CSS.
+
+### D12. AdSense contamination
+**Problem.** Hardcoded `ca-pub-9117572925263537`, one slot id for every placement, and a full-screen interstitial on `app_open`.
+**Solution.** Ads gated behind `adsEnabled()` requiring both client and slot; no interstitial; no refresh timer.
+**Result.** **Verified** — `grep` finds no hardcoded publisher id in `dist/`, `src/` or `index.html`.
+
+### D13. The documented quick start did not actually work
+**Problem.** Following the README in order produced an app with an empty catalogue and a demo login that failed.
+**Evidence.** Run end-to-end against `wrangler dev --local`: `/api/v1/products` returned `totalItems: 0` and `/api/v1/auth/login` returned **500** with `Imported HMAC key length (0) must be a non-zero value…`.
+**Root cause — three independent defects, each failing silently:**
+
+1. **The seed script never persisted anything.** It passed `d1Persist: true` to Miniflare, but Miniflare 3's `Persistence` type is `boolean | string` and `true` targets a temp directory that is discarded. The seed printed accurate row counts read back from its own in-memory database, so it *looked* like it worked. Probing all three option combinations directly showed only `d1Persist: <absolute path>` persists, and that Miniflare appends `miniflare-D1DatabaseObject/<hash>.sqlite` — so the path must be `.wrangler/state/v3/d1`, one segment above Miniflare's own default, to resolve to the exact file `wrangler dev --local` opens. Setting `persistTo` alongside it disables D1 persistence entirely.
+2. **No local secrets.** The Worker starts without them; the empty string reached WebCrypto at token-signing time and surfaced as an opaque 500 on login. `hmacKey()` now throws an error naming the missing variables and the command that fixes them — with no silent development fallback, since a worker signing tokens with a predictable key is a total authentication bypass. `api/.dev.vars` (gitignored) plus a committed `.dev.vars.example` now make local development work.
+3. **`miniflare` was undeclared as a direct dependency** of the script that imports it, so it resolved only transitively through wrangler.
+
+**Result.** **Verified** — after the fix, running the documented sequence and then querying through wrangler's own view of the database returns `users: 1, products: 6, clicks: 427, faqs: 8`. Against the live local Worker: products return `totalItems: 6`; login with the printed demo credentials succeeds and returns `Chinedu Nwankwo <demo@affiliatehub.test>`, tier `pro`; the wallet shows `₦67,500.00` available from the seeded commission; `/go/demoaff01` returns **302** to the product page with `?ref=demoaff01` and the link's click count increments.
+
+> **Why this matters more than the individual bugs.** This was the *only* path a new
+> developer would take, and it was broken in three places that each reported success.
+> It was found by running the quick start and reading the response bodies, not by any
+> test — the backend suite constructs its own Miniflare instance with explicit test
+> bindings, so it never exercised the seed script or the local secret path at all.
+
+---
+
+## E. Completed Features
+
+All of the following are **Implemented**; those marked ✓ are also **Verified** by an executed test.
+
+- ✓ Email/password signup and login with field-level validation errors
+- ✓ Token refresh with rotation and reuse detection
+- ✓ Logout that actually clears the token
+- ✓ Onboarding wizard persisting country, niches, WhatsApp
+- ✓ Product catalogue with server-side search, category filter, sort and pagination
+- ✓ Product detail with real promo assets
+- ✓ Affiliate link generation — idempotent per `(user_id, product_id)`, 10-char random code with collision retry
+- ✓ Click tracking via `/go/:code` → 302, with salted-hashed visitor IPs and hourly dedupe
+- ✓ Wallet summary: available, pending, lifetime, FX-converted secondary balance
+- ✓ Transaction history, paginated
+- ✓ Withdrawal with atomic debit, idempotency, per-method fees and minimums
+- ✓ Payout options served by the API rather than hardcoded in the client
+- ✓ Dashboard stats and pseudonymised leaderboard
+- ✓ Profile, bank details (encrypted, masked), monthly goal, password change
+- ✓ Notifications with mark-all-read
+- ✓ FAQs and support tickets
+- ✓ Health endpoint
+- ✓ Seed CLI producing a working demo database
+
+**34 API routes** (18 GET, 12 POST, 2 PUT, 1 PATCH, 1 DELETE) across **18 D1 tables**.
+
+---
+
+## F. Inferred Features
+
+Implemented because the evidence pointed at them, not because a spec asked:
+
+| Feature | Provenance | Scope |
+|---|---|---|
+| Click-tracking redirect | FACT (link codes existed with no endpoint to record a click) | REQUIRED |
+| Notification persistence | HIGH-CONFIDENCE INFERENCE (a `notifications` table existed) | STRONGLY JUSTIFIED |
+| Support tickets | HIGH-CONFIDENCE INFERENCE (contact form existed, submitted nowhere) | STRONGLY JUSTIFIED |
+| FX rate table replacing `balance / 450` | INDUSTRY-STANDARD | STRONGLY JUSTIFIED |
+| Links management page | REASONABLE ENHANCEMENT (links were created then unreachable) | STRONGLY JUSTIFIED |
+| Settings page | REASONABLE ENHANCEMENT (four profile menu items were wired to `onClick={() => {}}`) | STRONGLY JUSTIFIED |
+| Wallet reconciliation cron | REASONABLE ENHANCEMENT (D3 makes counters derivable) | STRONGLY JUSTIFIED |
+
+**Not implemented as speculative:** 2FA, email delivery, a merchant conversion webhook,
+multi-currency wallets beyond NGN/USD, an admin panel.
+
+---
+
+## G. Design
+
+The existing visual language — dark navy/indigo gradient, violet accents, card-based
+mobile-first layout, DM Sans + Plus Jakarta Sans — was coherent and was kept. Rewriting
+it would have been churn without benefit.
+
+What changed was correctness and accessibility:
+
+- **Skip link** to `#main-content`; every page provides that target.
+- `:focus-visible` rings; `.skip-link` styling.
+- `prefers-reduced-motion` honoured.
+- Form inputs have real `<label htmlFor>`, `aria-describedby` for errors, and
+  `aria-invalid` when failing.
+- Buttons are `<button>` with `aria-pressed` where they toggle; icons that decorate are
+  `aria-hidden`.
+- `safe-area-pb` / `safe-bottom` / `scrollbar-hide` now actually exist.
+- Balance privacy toggle carries `aria-pressed` and a real accessible name.
+- Loading, empty and error states are distinct components rather than inline conditionals,
+  and error states offer a retry **only when a retry could help**.
+
+---
+
+## H. SEO
+
+**Fixed:** real titles and descriptions per route; canonical URLs; Open Graph and
+Twitter cards pointing at a real `og-image.png`; JSON-LD for Organization, WebSite,
+Breadcrumb and FAQ; a sitemap listing only public pages; `robots.txt` disallowing
+authenticated routes and `/api/`; a web app manifest with real icons.
+
+**Verified** by `test/seo.test.tsx` (8 tests).
+
+**Honestly scoped.** Correct metadata and structured data make a page *eligible* to be
+understood and indexed. They do not guarantee rankings, traffic, Page 1 placement or
+indexing, and nothing here claims otherwise.
+
+---
+
+## I. Security
+
+Summarised; full detail in `SECURITY.md`.
+
+Server-side authorization on every route. PBKDF2-HMAC-SHA256 at 210,000 iterations with
+constant-time comparison and a dummy-hash path that equalises timing for unknown emails.
+Separate access/refresh secrets, `typ` and `alg` pinned, refresh stored as a SHA-256
+hash, rotation with family-wide reuse revocation. Two-layer brute-force protection with
+deliberately different failure modes — the Durable Object layer **fails open**, the
+durable D1 lockout **cannot**. Bank numbers AES-GCM encrypted and returned masked.
+Visitor IPs salted-hashed. Leaderboard pseudonymised. Atomic guarded debit plus
+idempotency keys on withdrawals.
+
+**Documented, not hidden:** signup 409 discloses email existence (accepted, D-12); no
+2FA; no email delivery; no real payout provider — without provider credentials a
+withdrawal stays `pending` with an honest `payout_awaiting_provider_configuration` log
+rather than being marked settled.
+
+---
+
+## J. Performance
+
+| Metric | Before | After |
+|---|---|---|
+| First-load gzip | 157.54 kB | **120.22 kB** (−23.7%) |
+| First-load raw | 520.47 kB | 403.20 kB |
+| Chunks loaded on first paint | 1 (everything) | 5 |
+| Total chunks | 1 | 29 |
+| Largest first-paint chunk | 520 kB | 160 kB (`react`) |
+| `og-image.png` | — | 102 kB (1200×630) |
+| App icons | — | 7.3 kB total (was 744 kB before compression) |
+
+**Verified** by measuring `dist/` after build. Route-level code splitting via
+`React.lazy`; vendor splitting for react / react-query / charts / forms; `immutable`
+cache headers on hashed assets; KV caching for the public catalogue with a bumpable
+version key.
+
+**Not measured here:** Lighthouse / Core Web Vitals. There is no deployed origin in this
+environment, and a lab score from a sandbox would be meaningless. Stated rather than
+guessed.
+
+---
+
+## K. Database
+
+18 tables across 3 additive migrations: `users`, `refresh_tokens`, `bank_details`,
+`payout_destinations`, `products`, `affiliate_links`, `clicks`, `conversions`,
+`transactions`, `notifications`, `audit_events`, `fx_rates`, `faqs`, `support_tickets`,
+`affiliate_goals`, `failed_logins`, `wallets`, `wallet_reconciliations`.
+
+Design points: UUID string PKs; money as integer minor units; commission in basis
+points; `idempotency_key` inlined on `transactions` with a partial unique index;
+soft-delete via `deleted_at`; the `transactions` ledger authoritative with wallet
+counters as a reconciled cache.
+
+**Migrations are additive only** and were applied to a fresh local database — **Verified**
+(`wrangler d1 migrations apply --local` → 3/3 ✅). No migration drops a column or table,
+so applying them to a database holding live records preserves it.
+
+There are no `down` migrations, deliberately: a destructive rollback should be a
+considered act taken with a backup, not a script run casually.
+
+---
+
+## L. Architecture
+
+```
+shared/api-contract.ts   ← imported by BOTH sides; the single source of wire truth
+        │
+        ├── src/           React 18 + TS + Vite + Tailwind  (Vercel)
+        └── api/           Cloudflare Worker, Hono          (Workers)
+             ├── routes/   34 routes
+             ├── lib/      crypto, auth, rate-limit, payouts, fx, repo, db, …
+             ├── jobs.ts   cron work
+             └── queue-consumer.ts
+```
+
+The shared contract is the load-bearing decision. The prototype typed every API
+response `any`, so a backend change could silently break the UI with nothing to catch
+it. Now a field renamed on one side is a compile error on the other.
+
+The Worker owns the envelope, CORS, security headers and error mapping; literal route
+segments match before parameterised ones; `strict: true` on both sides.
+
+---
+
+## M. Vercel
+
+`vercel.json` ships with: Vite framework, `npm ci` install, `dist` output; an `/api/:path*`
+rewrite to the Worker (placeholder URL to be replaced) so the browser stays same-origin;
+an SPA fallback that excludes `assets/` and `api/`; `immutable` caching on hashed assets;
+and security headers including a CSP with `frame-ancestors 'none'`.
+
+**Not verified** — deploying requires a Vercel project and a real Worker URL. The
+configuration is complete and reviewed; the deploy itself is outside this environment.
+
+---
+
+## N. Cloudflare Services Actually Used
+
+| Service | Justification |
+|---|---|
+| **D1** | Primary store. Relational by necessity — wallets, ledger, links and conversions all reference each other. |
+| **KV** | Public catalogue cache: read-heavy, write-rare, staleness-tolerant. Keyed by a bumpable version counter, 120 s / 300 s TTL, `x-cache: HIT\|MISS`. |
+| **R2** | Promo artwork and avatars. Zero egress fees matter when affiliates download assets repeatedly. |
+| **Durable Object** | Per-IP login/signup rate limiting needs shared mutable state across isolates. |
+| **Queue** | Payout settlement, so a slow provider cannot hold an HTTP request open. |
+| **Cron Trigger** | `15 3 * * *` — wallet reconciliation, stale-withdrawal expiry (72 h), session pruning. |
+
+**Deliberately not used:** Hyperdrive (no external database), Vectorize (no embeddings),
+D1 replicas (single region suffices), Workers AI (no inference). Each was considered and
+none had a job to do.
+
+---
+
+## O. Testing
+
+Everything below was **actually executed in this environment**. Nothing is projected.
+
+| Suite | Command | Result |
+|---|---|---|
+| Backend integration | `npm --prefix api run test` | **46 / 46 passed** |
+| Frontend unit + component | `npm run test` | **42 / 42 passed** |
+| Frontend typecheck (`strict`) | `npm run typecheck` | exit 0 |
+| Backend typecheck (`strict`) | `npm --prefix api run typecheck` | exit 0 |
+| Lint | `npm run lint` | **0 errors**, 15 warnings |
+| Build | `npm run build` | exit 0 |
+| Full pipeline | `npm run verify` | **exit 0** |
+| Migrations | `wrangler d1 migrations apply --local` | 3 / 3 ✅ |
+| Seed CLI | `tsx scripts/seed.ts --local` | 1 user, 6 products, 1 link, 427 clicks, 1 conversion, 1 transaction, 8 FAQs |
+| Seed **persistence** | `wrangler d1 execute --local --command "SELECT COUNT(*)…"` | Same counts read back through wrangler's own view — proves the seed wrote the database the dev server reads, not a private in-memory one |
+| Quick start, live | `wrangler dev --local` + curl | products `totalItems: 6`; demo login 200 → `Chinedu Nwankwo`, tier `pro`; wallet `₦67,500.00` available; `/go/demoaff01` → **302** with `?ref=demoaff01` and click count increments |
+
+The backend suite spins up the **real Worker** via Miniflare against the real migrations
+— it is not a mock. The frontend suite covers validation rules, money arithmetic, HTTP
+error semantics and per-route SEO.
+
+**Bugs the tests found that reasoning did not.** Six were real defects in shipping code,
+caught only by execution:
+
+1. `auth.parseSignup` called Zod's `.parse()` directly, so a weak password raised an
+   unhandled `ZodError` → **500 instead of a 400** with field messages.
+2. `products.getProduct` and `links.recordClick` derived the path segment positionally,
+   returning the literal string `'products'` / `'go'` instead of the slug → **404 on
+   every product page**.
+3. An infinite `notifyUnauthenticated()` recursion introduced by my own find-and-replace,
+   which meant **a 401 never signed the user out**.
+4. `ApiClientError.retryable` was tested behaviour that had never been implemented —
+   error screens would have offered a retry for a 404.
+5. A 401 storm: three concurrent queries each tore down session state.
+6. `commissionFromBps` rounding, and the seed script's SQL parser silently truncating
+   `CREATE TABLE` at the first inline `-- comment`.
+
+**Not covered:** browser E2E (no Playwright), visual regression, load testing, and the
+queue/cron paths under real Cloudflare timing. These are named as gaps, not implied as
+done.
+
+---
+
+## P. Documentation
+
+- `README.md` — rewritten from the Lovable boilerplate; quick start, architecture,
+  money model, Cloudflare rationale, security summary.
+- `docs/SECURITY.md` — controls that exist, the threat model table, and an explicit
+  "What is NOT implemented" section.
+- `docs/DEPLOYMENT.md` — step-by-step for both services, with a post-deploy checklist
+  and rollback notes.
+- `docs/DECISIONS.md` — 20 numbered decisions, each with the rejected alternative and
+  provenance/scope tags, plus a list of decisions deliberately *not* made.
+- Code comments explain *why*, and call out the traps — the guarded-debit ordering, the
+  literal-before-parameterised route order, the `exec()` newline behaviour.
+
+**Superseded:** `MASTER_IMPLEMENTATION_PLAN.md` and `BACKEND_IMPLEMENTATION_PLAN.md`
+remain in the tree as historical evidence. They are **not** accurate descriptions of the
+system and should not be followed.
+
+---
+
+## Q. Remaining Issues
+
+Stated plainly.
+
+**Requires action before production**
+1. `wrangler.toml` carries `REPLACE_WITH_…` placeholders for `database_id` and the
+   Durable Object `id`. The Worker will not start without a real DO id.
+2. `vercel.json` carries a placeholder Worker URL in the `/api/*` rewrite.
+3. All Worker secrets must be set via `wrangler secret`.
+4. **Rotate secrets.** `backend/.env` is untracked but still in git history.
+5. The seeded demo password (`Demo1234567`) must be changed if the database is reachable
+   from anywhere but a developer machine.
+
+**Environment-dependent — cannot be exercised here**
+6. Payout settlement needs a real provider; withdrawals stay `pending`.
+7. Vercel and Workers deploys were not performed.
+8. Live Core Web Vitals were not measured.
+
+**Known gaps, by design**
+9. No 2FA, no email delivery, no merchant conversion webhook, no admin panel.
+10. 15 lint warnings remain, all `react-refresh/only-export-components` in shadcn/ui
+    vendor files and the two contexts — cosmetic, and fixing them means splitting vendor
+    files for no behavioural gain.
+11. No browser E2E or visual regression tests.
+12. `bun.lockb` and `package-lock.json` both remain; one should be chosen.
+
+**Carried-over documentation debt**
+13. The two legacy plan documents are inaccurate and should be marked superseded in
+    place or removed.
+
+---
+
+## R. Deployment Steps
+
+Full detail in `docs/DEPLOYMENT.md`. Summary:
+
+```bash
+# 1. Worker
+cd api
+npx wrangler d1 create affiliate-hub-db        # paste database_id into wrangler.toml
+# set the Durable Object id in wrangler.toml (required — deploy fails without it)
+npx wrangler secret put ACCESS_TOKEN_SECRET
+npx wrangler secret put REFRESH_TOKEN_SECRET   # must differ from the above
+npx wrangler secret put VISITOR_HASH_SALT
+npx wrangler secret put FIELD_ENCRYPTION_KEY   # exactly 32 bytes, base64url
+npx wrangler d1 migrations apply affiliate-hub-db --remote
+npm run deploy
+
+# 2. Vercel
+#    Import the repo (Vite / `npm run build` / `dist`), set VITE_SITE_URL,
+#    and point the /api/* rewrite in vercel.json at the Worker URL.
+```
+
+Then verify: `/api/v1/health` returns 200 with `database: "ok"`; sign up; generate a
+link; follow it and confirm the 302 records a click; check the CSP did not break fonts.
+
+---
+
+## Closing note on method
+
+The repository was treated as evidence, not truth. Its own documentation claimed
+completion; its own build passed; both were wrong. Almost every serious defect here was
+found by **running** something — a `grep` against the built CSS, a migration applied to
+a real database, a test that asserted a field existed. Six genuine bugs surfaced only at
+execution time, including two of my own.
+
+Where something could not be verified, this report says so rather than implying
+otherwise.

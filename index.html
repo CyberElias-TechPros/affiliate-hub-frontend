@@ -1,33 +1,114 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-NG">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- TODO: Set the document title to the name of your application -->
-    <title>Lovable App</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
 
-    <!-- TODO: Update og:title to match your application name -->
-    <meta property="og:title" content="Lovable App" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <title>Affiliate Hub — Earn Commission Promoting Products in Nigeria</title>
+    <meta
+      name="description"
+      content="Affiliate Hub is a Nigeria-first affiliate platform. Browse products paying up to 50% commission, generate tracked links, share them on WhatsApp, and withdraw to your Nigerian bank, PayPal or USDT."
+    />
+    <link rel="canonical" href="https://affiliate-hub.vercel.app/" />
+
+    <!-- Open Graph. Social crawlers (WhatsApp, X, iMessage) do not execute
+         JavaScript, so the default card must be correct in static HTML. The
+         Seo component refines these per route for rendering crawlers. -->
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:site_name" content="Affiliate Hub" />
+    <meta property="og:title" content="Affiliate Hub — Earn Commission Promoting Products in Nigeria" />
+    <meta
+      property="og:description"
+      content="Browse products paying up to 50% commission, generate tracked links, share on WhatsApp, and withdraw to your Nigerian bank, PayPal or USDT."
+    />
+    <meta property="og:url" content="https://affiliate-hub.vercel.app/" />
+    <meta property="og:image" content="https://affiliate-hub.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Affiliate Hub — turn your audience into income" />
+    <meta property="og:locale" content="en_NG" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:title" content="Affiliate Hub — Earn Commission Promoting Products in Nigeria" />
+    <meta
+      name="twitter:description"
+      content="Browse products paying up to 50% commission, generate tracked links, share on WhatsApp, and withdraw to your Nigerian bank, PayPal or USDT."
+    />
+    <meta name="twitter:image" content="https://affiliate-hub.vercel.app/og-image.png" />
 
-    <!-- Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9117572925263537"
-         crossorigin="anonymous"></script>
-    <script>
-      window.adsbygoogle = window.adsbygoogle || [];
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!--
+      Fonts.
+
+      The previous build loaded these with a CSS `@import` placed *after* the
+      `@tailwind` directives. CSS requires `@import` to precede all other
+      statements, so the bundler dropped it entirely — verified by grepping the
+      production stylesheet, where no `@import` survived. DM Sans and Plus
+      Jakarta Sans never loaded and the whole type scale silently fell back to
+      system-ui.
+
+      Loading them here as `<link>` fixes that, and is faster: `preconnect`
+      starts the TLS handshake during HTML parsing instead of after the CSS is
+      downloaded. `display=swap` keeps text visible rather than blocking paint.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+    />
+
+    <!--
+      Structured data for the homepage. Sub-pages add their own via the Seo
+      component, which removes this block on navigation so two WebSite entities
+      never coexist in the document.
+    -->
+    <script type="application/ld+json" data-seo>
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Affiliate Hub",
+        "url": "https://affiliate-hub.vercel.app/",
+        "inLanguage": "en-NG",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Affiliate Hub",
+          "url": "https://affiliate-hub.vercel.app/",
+          "areaServed": { "@type": "Country", "name": "Nigeria" }
+        }
+      }
     </script>
+
+    <!--
+      No AdSense script here.
+
+      The previous build hardcoded a third-party publisher id in this file, so
+      every fork and every preview deployment served someone else's ads, and
+      the blocking script ran on pages with no ad units at all. Ads are now
+      injected by the AdBanner component only when VITE_ADSENSE_CLIENT and
+      VITE_ADSENSE_SLOT are configured.
+    -->
   </head>
 
   <body>
     <div id="root"></div>
+    <!-- Rendered if JavaScript fails or is still loading: a real message rather
+         than a blank white screen, and crawlable content for non-JS clients. -->
+    <noscript>
+      <div style="font-family: system-ui, sans-serif; padding: 2rem; max-width: 40rem; margin: 0 auto">
+        <h1>Affiliate Hub</h1>
+        <p>
+          Affiliate Hub is a Nigeria-first affiliate marketing platform. Browse products paying up to
+          50% commission, generate tracked links, share them on WhatsApp, and withdraw your earnings
+          to a Nigerian bank account, PayPal or USDT.
+        </p>
+        <p>This app requires JavaScript. Please enable it to continue.</p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,0 +1,73 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "affiliate-hub-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-09"
+# Required for Durable Object SQLite storage and the current D1 driver.
+compatibility_flags = ["nodejs_compat"]
+
+# Only one Worker invocation per request, no per-connection servers, no
+# filesystem. Everything below is a Cloudflare primitive.
+
+# --- D1: all relational data ------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "affiliate-hub-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# --- KV: public catalogue + FX cache ---------------------------------------
+[[kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# --- R2: promo artwork and avatar uploads ----------------------------------
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "affiliate-hub-assets"
+
+# --- Durable Object: strongly consistent rate limiting ---------------------
+[[durable_objects.bindings]]
+name = "RATE_LIMIT"
+class_name = "RateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimiter"]
+
+# --- Queue: asynchronous payout settlement ---------------------------------
+[[queues.producers]]
+binding = "PAYOUTS"
+queue = "affiliate-hub-payouts"
+
+[[queues.consumers]]
+queue = "affiliate-hub-payouts"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 5
+
+# --- Cron: nightly maintenance --------------------------------------------
+# 03:15 UTC daily: reconcile wallets, expire stale withdrawals, prune sessions.
+[triggers]
+crons = ["15 3 * * *"]
+
+[vars]
+# Non-secret configuration only. Secrets are set with
+# `wrangler secret put <NAME>` and must never appear in this file.
+ALLOWED_ORIGINS = "http://localhost:8080,https://affiliate-hub.vercel.app"
+PUBLIC_SITE_URL = "https://affiliate-hub.vercel.app"
+ACCESS_TOKEN_TTL_SECONDS = "900"
+REFRESH_TOKEN_TTL_SECONDS = "2592000"
+CATALOGUE_CACHE_TTL_SECONDS = "120"
+
+# Secrets required at deploy time (see docs/DEPLOYMENT.md):
+#   ACCESS_TOKEN_SECRET     - random 64+ chars, signs access tokens
+#   REFRESH_TOKEN_SECRET    - random 64+ chars, signs refresh tokens
+#   VISITOR_HASH_SALT       - random 64+ chars, salts click fingerprints
+#   FIELD_ENCRYPTION_KEY    - 32 random bytes, base64url, encrypts bank details
+#
+# Optional, enables real payout settlement:
+#   PAYOUT_PROVIDER_WEBHOOK
+#   PAYOUT_PROVIDER_SECRET
+
+[observability]
+enabled = true

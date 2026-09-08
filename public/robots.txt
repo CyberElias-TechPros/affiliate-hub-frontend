@@ -1,14 +1,36 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# Affiliate Hub
+#
+# The previous robots.txt was a blanket `Allow: /`, which invited crawlers into
+# every authenticated route. Those pages render behind a route guard, so a
+# crawler would have indexed empty shells whose <title> was the site name —
+# thin, duplicate content competing with the real marketing pages.
 
 User-agent: *
-Allow: /
+
+# Authenticated application. Not useful to index and not useful to a visitor
+# who lands there without a session.
+Disallow: /dashboard
+Disallow: /marketplace
+Disallow: /products/
+Disallow: /wallet
+Disallow: /withdraw
+Disallow: /links
+Disallow: /stats
+Disallow: /profile
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /auth
+
+# API surface. Never a destination.
+Disallow: /api/
+
+# Marketing and informational pages are explicitly welcome.
+Allow: /$
+Allow: /about
+Allow: /how-it-works
+Allow: /contact
+Allow: /help
+Allow: /terms
+Allow: /privacy
+
+Sitemap: https://affiliate-hub.vercel.app/sitemap.xml

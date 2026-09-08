@@ -2,7 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+/* Web fonts are loaded from index.html via <link rel="stylesheet">. An
+   @import here would sit after the @tailwind directives, which makes it
+   invalid CSS — the bundler drops it and the fonts never load. */
 
 @layer base {
   :root {
@@ -130,6 +132,33 @@
     @apply border-border;
   }
 
+  /*
+    Keyboard focus must always be visible. Radix components carry their own
+    rings, but plain <button> and <a> elements in this codebase did not, so
+    tabbing through the app gave no indication of position.
+  */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  /* Skip-link target: only occupies layout while focused. */
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    padding: 0.75rem 1.25rem;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    font-weight: 600;
+    border-radius: 0 0 0.5rem 0;
+  }
+  .skip-link:focus {
+    left: 0;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "ss01", "ss02", "cv01";
@@ -143,6 +172,28 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /*
+    These three were used across BottomNav, StickyFooterAd, DashboardPage,
+    MarketplacePage and WalletPage but defined nowhere, so they compiled to
+    nothing. The result: the fixed bottom nav sat under the iPhone home
+    indicator and horizontal chip rows showed a scrollbar.
+  */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 
   .glass-effect {
@@ -296,4 +347,21 @@
 
 .ad-fade-in {
   animation: fadeInUp 0.3s ease-out;
+}
+
+
+/*
+  The app leans on fade/slide/scale animations for perceived polish. For users
+  who ask the OS to reduce motion, those become instant state changes instead.
+  This must come after the animation utilities so it wins the cascade.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

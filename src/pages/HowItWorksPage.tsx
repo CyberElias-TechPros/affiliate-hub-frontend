@@ -201,7 +201,7 @@ const HowItWorksPage = () => {
             Ready to Get Started?
           </h2>
           <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-            Join 15,000+ affiliates already earning with Affiliate Hub. Sign up is free!
+            Start promoting products you already use. Signing up is free, and bank withdrawals cost nothing.
           </p>
           <Link to="/auth">
             <Button size="lg" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90">

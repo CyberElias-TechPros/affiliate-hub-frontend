@@ -97,20 +97,16 @@ const AboutPage = () => {
               <div className="bg-card rounded-2xl p-8 shadow-card">
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">2022</div>
-                    <div className="text-muted-foreground">Founded in Lagos</div>
+                    <div className="text-3xl font-bold text-primary">Up to 50%</div>
+                    <div className="text-muted-foreground">Commission on eligible products</div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">15K+</div>
-                    <div className="text-muted-foreground">Active affiliates</div>
+                    <div className="text-3xl font-bold text-primary">3</div>
+                    <div className="text-muted-foreground">Payout methods: bank, PayPal, USDT</div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">₦50M+</div>
-                    <div className="text-muted-foreground">Paid to affiliates</div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">500+</div>
-                    <div className="text-muted-foreground">Products listed</div>
+                    <div className="text-3xl font-bold text-primary">Free</div>
+                    <div className="text-muted-foreground">To join, and free bank withdrawals</div>
                   </div>
                 </div>
               </div>
