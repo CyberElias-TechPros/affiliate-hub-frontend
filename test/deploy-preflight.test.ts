@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -15,17 +16,39 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * The preflight turns that into a build failure. These tests keep the guard
  * honest: a preflight that stops matching its own tokens would report success
  * while shipping exactly the breakage it exists to prevent.
+ *
+ * The "filled in" cases run against a scratch copy of the repo via
+ * DEPLOY_CHECK_ROOT. The first version of this file rewrote `vercel.json` and
+ * `api/wrangler.toml` in place and restored them afterwards, which worked in
+ * isolation — but `wrangler dev` watches `wrangler.toml`, so running the suite
+ * reloaded and then killed the dev server. A test must not mutate tracked files
+ * that a live process depends on, however briefly.
  */
 
 const root = path.resolve(__dirname, "..");
 const script = path.join(root, "scripts/check-deploy.mjs");
 
-const run = (args: string[]): { status: number; out: string } => {
+const vercelOriginal = fs.readFileSync(path.join(root, "vercel.json"), "utf8");
+const wranglerOriginal = fs.readFileSync(path.join(root, "api/wrangler.toml"), "utf8");
+
+/** Scratch tree the check can be pointed at without touching the repo. */
+let scratch: string;
+
+const writeScratch = (vercel: string, wrangler: string): string => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "deploy-check-"));
+  fs.writeFileSync(path.join(dir, "vercel.json"), vercel);
+  fs.mkdirSync(path.join(dir, "api"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "api/wrangler.toml"), wrangler);
+  return dir;
+};
+
+const run = (args: string[], cwdRoot?: string): { status: number; out: string } => {
   try {
     const out = execFileSync(process.execPath, [script, ...args], {
       cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, ...(cwdRoot ? { DEPLOY_CHECK_ROOT: cwdRoot } : {}) },
     });
     return { status: 0, out };
   } catch (err) {
@@ -34,18 +57,15 @@ const run = (args: string[]): { status: number; out: string } => {
   }
 };
 
-let vercelOriginal: string;
-let wranglerOriginal: string;
+const cleanups: string[] = [];
 
 beforeAll(() => {
-  vercelOriginal = fs.readFileSync(path.join(root, "vercel.json"), "utf8");
-  wranglerOriginal = fs.readFileSync(path.join(root, "api/wrangler.toml"), "utf8");
+  scratch = writeScratch(vercelOriginal, wranglerOriginal);
+  cleanups.push(scratch);
 });
 
 afterAll(() => {
-  // Restore, or the working tree is left dirty by the tests themselves.
-  fs.writeFileSync(path.join(root, "vercel.json"), vercelOriginal);
-  fs.writeFileSync(path.join(root, "api/wrangler.toml"), wranglerOriginal);
+  for (const dir of cleanups) fs.rmSync(dir, { recursive: true, force: true });
 });
 
 describe("deploy preflight", () => {
@@ -63,21 +83,18 @@ describe("deploy preflight", () => {
   });
 
   it("passes on the vercel target once the worker url is filled in", () => {
-    const target = path.join(root, "vercel.json");
-    fs.writeFileSync(
-      target,
+    const dir = writeScratch(
       vercelOriginal.replace(
         "affiliate-hub-api.REPLACE_ME.workers.dev",
         "affiliate-hub-api.example.workers.dev",
       ),
+      wranglerOriginal,
     );
-    try {
-      const { status, out } = run(["vercel"]);
-      expect(status).toBe(0);
-      expect(out).toContain("clean");
-    } finally {
-      fs.writeFileSync(target, vercelOriginal);
-    }
+    cleanups.push(dir);
+
+    const { status, out } = run(["vercel"], dir);
+    expect(status).toBe(0);
+    expect(out).toContain("clean");
   });
 
   it("fails on the worker target for unfilled cloudflare ids", () => {
@@ -97,25 +114,41 @@ describe("deploy preflight", () => {
   });
 
   it("passes on the worker target once both ids are filled in", () => {
-    const target = path.join(root, "api/wrangler.toml");
-    fs.writeFileSync(
-      target,
+    const dir = writeScratch(
+      vercelOriginal,
       wranglerOriginal
         .replace("REPLACE_WITH_D1_DATABASE_ID", "11111111-2222-3333-4444-555555555555")
         .replace("REPLACE_WITH_KV_NAMESPACE_ID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
     );
-    try {
-      const { status } = run(["worker"]);
-      expect(status).toBe(0);
-    } finally {
-      fs.writeFileSync(target, wranglerOriginal);
-    }
+    cleanups.push(dir);
+
+    const { status } = run(["worker"], dir);
+    expect(status).toBe(0);
   });
 
   it("rejects an unknown target rather than passing silently", () => {
     const { status, out } = run(["nonsense"]);
     expect(status).toBe(2);
     expect(out).toContain("unknown deploy target");
+  });
+
+  it("fails when a checked file is missing rather than passing vacuously", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "deploy-check-empty-"));
+    cleanups.push(dir);
+
+    const { status, out } = run(["vercel"], dir);
+    expect(status).toBe(2);
+    expect(out).toContain("file not found");
+  });
+});
+
+describe("the tests never mutate tracked files", () => {
+  it("vercel.json and wrangler.toml are byte-identical after the suite", () => {
+    // This is the regression that killed the dev server: the earlier version
+    // rewrote both files in place, and `wrangler dev` reloads on any change to
+    // wrangler.toml. Asserting on the contents catches it if it comes back.
+    expect(fs.readFileSync(path.join(root, "vercel.json"), "utf8")).toBe(vercelOriginal);
+    expect(fs.readFileSync(path.join(root, "api/wrangler.toml"), "utf8")).toBe(wranglerOriginal);
   });
 });
 
@@ -134,7 +167,10 @@ describe("the preflight is actually wired into the vercel build", () => {
     expect(pkg.scripts[scriptName]).toContain("check-deploy.mjs vercel");
     // The preflight must run *before* the build, or a broken config still ships.
     const cmd = pkg.scripts[scriptName];
-    expect(cmd.indexOf("check-deploy.mjs")).toBeLessThan(cmd.indexOf("vite build") === -1 ? cmd.indexOf("npm run build") : cmd.indexOf("vite build"));
+    const checkAt = cmd.indexOf("check-deploy.mjs");
+    const buildAt = cmd.indexOf("npm run build");
+    expect(checkAt).toBeGreaterThanOrEqual(0);
+    expect(buildAt).toBeGreaterThan(checkAt);
     expect(cmd).toContain("&&");
   });
 

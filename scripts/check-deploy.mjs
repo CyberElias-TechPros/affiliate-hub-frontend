@@ -28,7 +28,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/**
+ * Directory the check runs against.
+ *
+ * Overridable so tests can point it at a scratch directory. The first version had
+ * no override, so the test rewrote `api/wrangler.toml` in place — a file
+ * `wrangler dev` watches — and running the test suite killed the dev server. A
+ * test should not mutate tracked files that a live process depends on.
+ */
+const root = process.env.DEPLOY_CHECK_ROOT
+  ? path.resolve(process.env.DEPLOY_CHECK_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * A literal placeholder token that must be replaced before deploying.
