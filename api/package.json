@@ -1,0 +1,30 @@
+{
+  "name": "affiliate-hub-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Affiliate Hub API — Cloudflare Worker with D1, KV, R2, Durable Objects and Queues",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "wrangler dev --local --ip 0.0.0.0 --port 8787",
+    "migrate:local": "wrangler d1 migrations apply affiliate-hub-db --local",
+    "migrate:remote": "wrangler d1 migrations apply affiliate-hub-db --remote",
+    "seed:local": "npm run migrate:local && tsx scripts/seed.ts --local",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.0",
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "esbuild": "^0.28.2",
+    "miniflare": "^3.20241218.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.99.0"
+  }
+}

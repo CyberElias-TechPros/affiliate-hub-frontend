@@ -1,15 +1,23 @@
-# 📑 MASTER IMPLEMENTATION PLAN: THE AFFILIATE HUB (V1.0)
-
-**Project Status:** ✅ Implementation Complete | **Target Markets:** Nigeria (Primary) + Global
-**Focus:** Full-Stack Implementation with Frontend Emphasis | **Version:** 1.0.0  
-**Last Updated:** 2025-12-28  
-
-**Expert Skeptic Notes:**  
-- Accuracy-driven: Features included only if they solve real problems for Nigerian/global affiliates.  
-- Network-aware: All assets lazy-loaded; offline states cached.  
-- Payment-focused: Multi-currency (NGN/USD), local payouts (Paystack/Flutterwave), crypto (USDT).  
-- WhatsApp-centric: Share buttons everywhere for Nigerian market dominance.  
-- Bundle size: Keep under 500KB for expensive data plans.  
+> ## ⚠️ SUPERSEDED — do not follow this document
+>
+> This file is retained as **historical evidence of intent only**. It does not describe
+> the system that was built, and following it will produce the wrong result.
+>
+> **What is wrong with it:**
+> - The status line below claims "✅ Implementation Complete". At the time it was
+>   written the repository was a UI shell over an Express/SQLite monolith, with no
+>   test runner, `strict: false`, and a build that silently dropped the web fonts.
+>   Several features described here as done (withdrawals, onboarding, click tracking)
+>   were stubs that never called an API.
+> - The architecture it describes — Express + Postgres + Redis + Kubernetes — was
+>   not used. The delivered system is a **Cloudflare Worker with D1/KV/R2/Durable
+>   Object/Queue/Cron**, with the frontend on Vercel.
+>
+> **Read these instead:**
+> - [`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md) — what was found, fixed and verified
+> - [`docs/DECISIONS.md`](docs/DECISIONS.md) — decision ledger, with rejected alternatives
+> - [`docs/SECURITY.md`](docs/SECURITY.md) · [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+> - [`README.md`](README.md) — how to actually run it
 
 ---
 

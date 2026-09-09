@@ -14,17 +14,23 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* Linting */
-    "strict": false,
+    /* Type safety.
+       The project shipped with `strict: false`, which is why the prototype
+       could pass `any` through the whole API layer without complaint.
+       `strict` is on; `noUncheckedIndexedAccess` stays off because array
+       indexing in UI loops would need pervasive non-null assertions. */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noImplicitAny": false,
-    "noFallthroughCasesInSwitch": false,
+    "noFallthroughCasesInSwitch": true,
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "shared", "test"]
 }

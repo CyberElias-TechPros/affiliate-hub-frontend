@@ -2,10 +2,17 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Seo } from "@/components/seo/Seo";
+import { LEGAL_EMAIL } from "@/lib/config";
 
 const TermsPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="Terms of service"
+        description="The terms that govern use of Affiliate Hub."
+        path="/terms"
+      />
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4">
@@ -129,7 +136,7 @@ const TermsPage = () => {
                 <p>
                   For questions about these terms, please contact us at:
                   <br />
-                  Email: legal@affiliatehub.ng
+                  Email: {LEGAL_EMAIL}
                   <br />
                   Address: Victoria Island, Lagos, Nigeria
                 </p>
@@ -145,7 +152,7 @@ const TermsPage = () => {
           <p>© {new Date().getFullYear()} Affiliate Hub. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 

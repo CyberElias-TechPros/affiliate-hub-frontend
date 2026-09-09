@@ -1,0 +1,27 @@
+# Copy to `.dev.vars` for local development:  cp .dev.vars.example .dev.vars
+# `.dev.vars` is gitignored; wrangler dev --local reads it automatically.
+#
+# For real deployments do NOT use this file — set each value with:
+#   npx wrangler secret put ACCESS_TOKEN_SECRET
+#
+# Generate values:
+#   openssl rand -base64 32                                   # the three secrets
+#   openssl rand 32 | basenc --base64url | tr -d '=' | head -c 43   # 32-byte key
+
+# HMAC key for access tokens.
+ACCESS_TOKEN_SECRET=
+
+# HMAC key for refresh tokens. MUST differ from ACCESS_TOKEN_SECRET — if they
+# match, a refresh token becomes a valid access token and rotation is pointless.
+REFRESH_TOKEN_SECRET=
+
+# Salt for hashing visitor IPs before storage.
+VISITOR_HASH_SALT=
+
+# Exactly 32 bytes, base64url, no padding. Encrypts bank account numbers at rest.
+FIELD_ENCRYPTION_KEY=
+
+# Optional. Without these, withdrawals are created and left `pending` with a
+# `payout_awaiting_provider_configuration` log. They are never faked as settled.
+# PAYOUT_PROVIDER_WEBHOOK=
+# PAYOUT_PROVIDER_SECRET=

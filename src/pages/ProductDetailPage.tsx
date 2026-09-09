@@ -1,278 +1,323 @@
 import * as React from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Heart, Share2, Check, Copy, Download, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Check, Copy, Link2, Loader2, MessageCircle, Share2 } from "lucide-react";
 import { toast } from "sonner";
-import { ProductAPI } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { DataErrorState } from "@/components/routing/ProtectedRoute";
+import { Seo, breadcrumbSchema } from "@/components/seo/Seo";
+import { AffiliateAPI, ApiClientError, ProductAPI } from "@/lib/api";
+import { whatsappLink } from "@/lib/validation";
+import { formatMoney } from "@shared/api-contract";
 
+/**
+ * Product detail + affiliate toolkit.
+ *
+ * The prototype's "Generate link" button showed a fabricated URL built from
+ * `window.location.origin` and never persisted anything. This generates a real
+ * tracked link through the API, and the URL it shows is the one the server
+ * built from its own configured public origin — so it keeps working after the
+ * affiliate copies it into WhatsApp.
+ */
 const ProductDetailPage = () => {
+  const { slug = "" } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [currentImage, setCurrentImage] = React.useState(0);
-  const [isSaved, setIsSaved] = React.useState(false);
-  const [linkCopied, setLinkCopied] = React.useState(false);
-  const [showToolkit, setShowToolkit] = React.useState(false);
+  const queryClient = useQueryClient();
 
-  // Fetch product data from API
-  const { data: productData, isLoading, error } = useQuery({
-    queryKey: ['product', id],
-    queryFn: () => ProductAPI.getProductDetail(id || ''),
-    select: (response) => response.data,
-    enabled: !!id,
+  const product = useQuery({
+    queryKey: ["product", slug],
+    queryFn: () => ProductAPI.detail(slug),
+    enabled: slug.length > 0,
+  });
+  const assets = useQuery({
+    queryKey: ["product-assets", slug],
+    queryFn: () => ProductAPI.assets(slug),
+    enabled: slug.length > 0,
   });
 
-  const affiliateLink = `https://affiliatehub.ng/ref/user123/${id}`;
+  const generate = useMutation({
+    mutationFn: () => AffiliateAPI.generateLink(product.data?.id ?? ""),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["affiliate-links"] });
+      toast.success("Your tracking link is ready");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiClientError ? error.message : "We could not generate that link. Please try again.",
+      );
+    },
+  });
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(affiliateLink);
-    setLinkCopied(true);
-    toast.success("Link copied to clipboard!");
-    setTimeout(() => setLinkCopied(false), 2000);
+  const link = generate.data?.link;
+  const commissionPercent = product.data ? product.data.commissionBps / 100 : 0;
+
+  const copy = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`);
+    } catch {
+      // Clipboard access can be denied (insecure context, iframe sandbox).
+      // Falling back to a prompt is clunky but better than a silent failure.
+      window.prompt(`Copy ${label.toLowerCase()}:`, value);
+    }
   };
 
-  const handleShareWhatsApp = () => {
-    const message = encodeURIComponent(`Check out this amazing product! ${affiliateLink}`);
-    window.open(`https://wa.me/?text=${message}`, "_blank");
+  const shareToWhatsapp = (text: string) => {
+    const message = link ? text.replace("{link}", link.url) : text;
+    window.open(whatsappLink("", message), "_blank", "noopener,noreferrer");
   };
 
-  if (isLoading) {
+  const shareNative = async (text: string) => {
+    const message = link ? text.replace("{link}", link.url) : text;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product.data?.title, text: message, url: link?.url });
+      } catch {
+        /* The user dismissed the share sheet; not an error worth surfacing. */
+      }
+      return;
+    }
+    void copy(message, "Message");
+  };
+
+  if (product.isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
-          <div className="flex items-center justify-between px-4 py-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-full hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        <div className="px-4 py-6 space-y-6">
-          <div className="animate-pulse">
-            <div className="aspect-[4/3] overflow-hidden bg-muted rounded-xl animate-shimmer" />
-            <div className="mt-4 space-y-2">
-              <div className="h-6 bg-muted rounded w-3/4" />
-              <div className="h-4 bg-muted rounded w-1/2" />
-              <div className="h-8 bg-muted rounded w-1/3" />
-            </div>
-          </div>
+      <div className="min-h-screen bg-background pb-28">
+        <div className="px-4 pt-6">
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <Skeleton className="mt-4 h-48 w-full rounded-2xl" />
+          <Skeleton className="mt-4 h-6 w-2/3" />
+          <Skeleton className="mt-2 h-4 w-1/2" />
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (product.isError || !product.data) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
-          <div className="flex items-center justify-between px-4 py-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-full hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        <div className="px-4 py-6">
-          <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-center">
-            <p className="text-destructive font-medium">Failed to load product</p>
-            <p className="text-muted-foreground text-sm mt-1">Please try again later</p>
-            <Button
-              onClick={() => window.location.reload()}
-              variant="outline"
-              className="mt-4"
-            >
-              Retry
-            </Button>
-          </div>
+      <div className="min-h-screen bg-background p-4">
+        <DataErrorState
+          title="We could not find that product"
+          message={
+            product.error instanceof ApiClientError
+              ? product.error.message
+              : "It may have been removed from the marketplace."
+          }
+          onRetry={() => void product.refetch()}
+        />
+        <div className="mt-4 text-center">
+          <Link to="/marketplace" className="text-sm font-medium text-primary hover:underline">
+            Back to marketplace
+          </Link>
         </div>
       </div>
     );
   }
 
-  if (!productData) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
-          <div className="flex items-center justify-between px-4 py-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-full hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        <div className="px-4 py-6">
-          <div className="bg-muted/50 border border-border/20 rounded-xl p-4 text-center">
-            <p className="text-muted-foreground">Product not found</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const p = product.data;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-4 py-3">
+    <div className="min-h-screen bg-background pb-28">
+      <Seo
+        title={p.title}
+        description={p.summary}
+        path={`/products/${p.slug}`}
+        robots="noindex, nofollow"
+        jsonLd={[
+          breadcrumbSchema([
+            { name: "Marketplace", path: "/marketplace" },
+            { name: p.title, path: `/products/${p.slug}` },
+          ]),
+        ]}
+      />
+
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
+        <div className="flex items-center gap-3 px-4 py-4">
           <button
+            type="button"
             onClick={() => navigate(-1)}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
+            className="rounded-full p-2 transition-colors hover:bg-muted"
+            aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsSaved(!isSaved)}
-              className={`p-2 rounded-full transition-colors ${
-                isSaved ? "bg-destructive/10 text-destructive" : "hover:bg-muted"
-              }`}
-            >
-              <Heart className={`h-5 w-5 ${isSaved && "fill-current"}`} />
-            </button>
-            <button
-              onClick={handleShareWhatsApp}
-              className="p-2 rounded-full hover:bg-muted transition-colors"
-            >
-              <Share2 className="h-5 w-5" />
-            </button>
-          </div>
+          <h1 className="font-display truncate text-lg font-semibold">Product details</h1>
         </div>
-      </div>
+      </header>
 
-      {/* Image Carousel */}
-      <div className="relative">
-        <div className="aspect-[4/3] overflow-hidden">
-          <img
-            src={productData.images[currentImage]}
-            alt={productData.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {productData.images.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentImage(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                currentImage === index
-                  ? "w-6 bg-primary-foreground"
-                  : "bg-primary-foreground/50"
-              }`}
+      <main id="main-content" className="px-4 py-4">
+        <div className="overflow-hidden rounded-2xl bg-muted">
+          {p.imageUrl ? (
+            <img
+              src={p.imageUrl}
+              alt={p.title}
+              className="aspect-square w-full object-cover"
+              width={640}
+              height={640}
             />
-          ))}
-        </div>
-        {/* Commission Badge */}
-        <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full gradient-primary text-primary-foreground font-bold text-sm shadow-glow">
-          {productData.commission}% Commission
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="px-4 py-6 space-y-6">
-        {/* Title & Price */}
-        <div>
-          <span className="text-sm text-muted-foreground font-medium">{productData.category}</span>
-          <h1 className="text-xl font-bold font-display text-foreground mt-1">
-            {productData.title}
-          </h1>
-          <div className="flex items-baseline gap-3 mt-3">
-            <span className="text-2xl font-bold text-foreground">
-              ₦{productData.price.toLocaleString()}
-            </span>
-            <span className="text-sm text-success font-semibold">
-              Earn ₦{productData.commissionAmount.toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        {/* Description */}
-        <div>
-          <h2 className="font-semibold text-foreground mb-2">About this product</h2>
-          <p className="text-muted-foreground leading-relaxed">{productData.description}</p>
-        </div>
-
-        {/* Why Promote */}
-        <div className="bg-success/5 border border-success/20 rounded-xl p-4">
-          <h2 className="font-semibold text-foreground mb-3">Why promote this?</h2>
-          <ul className="space-y-2">
-            {productData.whyPromote.map((point, index) => (
-              <li key={index} className="flex items-start gap-2 text-sm">
-                <Check className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                <span className="text-muted-foreground">{point}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Affiliate Toolkit */}
-        <div className="bg-card rounded-xl shadow-card p-4 space-y-4">
-          <h2 className="font-semibold text-foreground">Your Affiliate Toolkit</h2>
-          
-          {/* Affiliate Link */}
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Your unique link</label>
-            <div className="flex gap-2">
-              <div className="flex-1 px-3 py-2.5 bg-muted rounded-lg text-sm text-foreground truncate">
-                {affiliateLink}
-              </div>
-              <Button
-                onClick={handleCopyLink}
-                className={`px-4 rounded-lg font-medium transition-all ${
-                  linkCopied
-                    ? "bg-success text-success-foreground"
-                    : "gradient-primary text-primary-foreground"
-                }`}
-              >
-                {linkCopied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-1" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4 mr-1" />
-                    Copy
-                  </>
-                )}
-              </Button>
+          ) : (
+            <div className="flex aspect-square w-full items-center justify-center text-6xl" aria-hidden="true">
+              📦
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Promo Assets */}
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Promo materials</label>
-            <div className="grid grid-cols-3 gap-2">
-              {productData.promoAssets.map((asset, index) => (
-                <div key={index} className="relative aspect-square rounded-lg overflow-hidden group">
-                  <img src={asset} alt={`Promo ${index + 1}`} className="w-full h-full object-cover" />
-                  <button className="absolute inset-0 bg-foreground/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <Download className="h-5 w-5 text-background" />
-                  </button>
-                </div>
+        <div className="mt-4">
+          <p className="text-sm text-muted-foreground">{p.merchant}</p>
+          <h2 className="font-display text-2xl font-bold text-foreground">{p.title}</h2>
+          <p className="mt-2 text-muted-foreground">{p.summary}</p>
+        </div>
+
+        <div className="bg-card shadow-card mt-4 grid grid-cols-3 gap-3 rounded-xl p-4">
+          <Stat label="Price" value={formatMoney(p.price)} />
+          <Stat
+            label="Commission"
+            value={`${commissionPercent % 1 === 0 ? commissionPercent.toFixed(0) : commissionPercent.toFixed(1)}%`}
+            tone="success"
+          />
+          <Stat label="You earn" value={formatMoney(p.commissionAmount)} tone="success" />
+        </div>
+
+        <section className="mt-6" aria-labelledby="why-promote-heading">
+          <h2 id="why-promote-heading" className="font-display mb-3 text-lg font-semibold text-foreground">
+            Why promote this
+          </h2>
+          {p.whyPromote.length > 0 ? (
+            <ul className="space-y-2">
+              {p.whyPromote.map((point) => (
+                <li key={point} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-success" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">{point}</span>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">No additional details from the merchant yet.</p>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            {p.cookieDays}-day cookie window · conversions are approved by the merchant before they become
+            withdrawable.
+          </p>
+        </section>
 
-          {/* WhatsApp Share */}
-          <Button
-            onClick={handleShareWhatsApp}
-            className="w-full h-12 bg-success hover:bg-success/90 text-success-foreground font-semibold rounded-xl"
-          >
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-            </svg>
-            Share to WhatsApp
-          </Button>
-        </div>
-      </div>
+        {/* Toolkit */}
+        <section className="mt-8" aria-labelledby="toolkit-heading">
+          <h2 id="toolkit-heading" className="font-display mb-3 text-lg font-semibold text-foreground">
+            Your affiliate toolkit
+          </h2>
+
+          {!link ? (
+            <Button
+              className="gradient-primary h-14 w-full rounded-xl text-lg font-semibold text-primary-foreground shadow-glow"
+              disabled={generate.isPending}
+              onClick={() => generate.mutate()}
+            >
+              {generate.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Link2 className="mr-2 h-5 w-5" />
+                  Generate my link
+                </>
+              )}
+            </Button>
+          ) : (
+            <div className="animate-fade-in space-y-4">
+              <div>
+                <label htmlFor="affiliate-link" className="mb-1.5 block text-sm font-medium text-foreground">
+                  Your tracking link
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="affiliate-link"
+                    readOnly
+                    value={link.url}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="h-12 min-w-0 flex-1 rounded-lg border border-input bg-muted px-3 text-sm text-foreground"
+                  />
+                  <Button variant="outline" className="h-12 flex-shrink-0" onClick={() => void copy(link.url, "Link")}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {link.clicks} click{link.clicks === 1 ? "" : "s"} · {link.conversions} sale
+                  {link.conversions === 1 ? "" : "s"}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  className="gradient-primary h-12 rounded-xl font-semibold text-primary-foreground"
+                  onClick={() => void shareNative("Check this out: {link}")}
+                >
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Share
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-xl"
+                  onClick={() => shareToWhatsapp("🔥 Check this out 👉 {link}")}
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  WhatsApp
+                </Button>
+              </div>
+
+              {assets.data && assets.data.assets.length > 0 && (
+                <div>
+                  <h3 className="mb-2 text-sm font-medium text-foreground">Ready-to-use captions</h3>
+                  <ul className="space-y-2">
+                    {assets.data.assets
+                      .filter((asset) => asset.kind === "copy" && asset.text)
+                      .map((asset) => (
+                        <li
+                          key={asset.id}
+                          className="bg-card shadow-card flex items-start justify-between gap-3 rounded-xl p-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-muted-foreground">{asset.label}</p>
+                            <p className="mt-1 whitespace-pre-line text-sm text-foreground">{asset.text}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-shrink-0"
+                            onClick={() => void copy(link ? asset.text!.replace("{link}", link.url) : asset.text!, "Caption")}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+
+              <Link to="/links" className="block text-center text-sm font-medium text-primary hover:underline">
+                Manage all your links
+              </Link>
+            </div>
+          )}
+        </section>
+      </main>
+
+      <BottomNav />
     </div>
   );
 };
+
+const Stat: React.FC<{ label: string; value: string; tone?: "success" }> = ({ label, value, tone }) => (
+  <div>
+    <p className="text-xs text-muted-foreground">{label}</p>
+    <p className={`font-display text-lg font-bold ${tone === "success" ? "text-success" : "text-foreground"}`}>
+      {value}
+    </p>
+  </div>
+);
 
 export default ProductDetailPage;

@@ -1,15 +1,26 @@
-# 📑 BACKEND IMPLEMENTATION PLAN: THE AFFILIATE HUB (V1.0)
-
-**Project Status:** ⏳ Backend Planning | **Target Markets:** Nigeria (Primary) + Global
-**Focus:** Backend API Implementation | **Version:** 1.0.0  
-**Last Updated:** 2026-01-04  
-
-**Expert Skeptic Notes:**  
-- Performance-driven: Optimize for fast response times and scalability.  
-- Security-focused: Implement robust authentication and data protection.  
-- Payment-ready: Integrate with local payment providers (Paystack, Flutterwave).  
-- Data-driven: Provide comprehensive analytics for affiliates.  
-- API-first: Design clean, well-documented RESTful endpoints.  
+> ## ⚠️ SUPERSEDED — do not follow this document
+>
+> This file is retained as **historical evidence of intent only**. It does not describe
+> the system that was built, and following it will produce the wrong result.
+>
+> **What is wrong with it:**
+> - The status line below claims "✅ Implementation Complete". At the time it was
+>   written the repository was a UI shell over an Express/SQLite monolith, with no
+>   test runner, `strict: false`, and a build that silently dropped the web fonts.
+>   Several features described here as done (withdrawals, onboarding, click tracking)
+>   were stubs that never called an API.
+>
+> Its **endpoint and feature list is still useful** as a statement of intent, and much
+> of it was honoured. Its **stack is not**.
+> - The architecture it describes — Express + Postgres + Redis + Kubernetes — was
+>   not used. The delivered system is a **Cloudflare Worker with D1/KV/R2/Durable
+>   Object/Queue/Cron**, with the frontend on Vercel.
+>
+> **Read these instead:**
+> - [`docs/FINAL_REPORT.md`](docs/FINAL_REPORT.md) — what was found, fixed and verified
+> - [`docs/DECISIONS.md`](docs/DECISIONS.md) — decision ledger, with rejected alternatives
+> - [`docs/SECURITY.md`](docs/SECURITY.md) · [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+> - [`README.md`](README.md) — how to actually run it
 
 ---
 

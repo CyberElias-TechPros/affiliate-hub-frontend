@@ -1,3 +1,23 @@
+> ## ⚠️ SUPERSEDED AND VULNERABLE — do not run this code
+>
+> This directory is the original Express + SQLite prototype. It is **not** the
+> backend this project ships; the production API is the Cloudflare Worker in
+> `api/`. Nothing in the build or deploy pipeline references this directory.
+>
+> It is retained as **historical evidence** for the findings in
+> `docs/FINAL_REPORT.md`, several of which are only legible against the code that
+> caused them.
+>
+> **Do not run or deploy it.** It contains the defects that report documents,
+> including a withdrawal route that accepts negative amounts and therefore
+> *increases* a balance, a `social-auth` endpoint that mints valid JWTs for any
+> claimed identity without verification, and a balance check split across a
+> `SELECT` and a separate `UPDATE` with no transaction — two concurrent requests
+> can both spend the same funds. Its `.env` shipped with
+> `JWT_SECRET=your-secret-key-here`.
+>
+> Use `api/` instead. See the root `README.md` for the quick start.
+
 # Affiliate Hub Backend - Simple Implementation
 
 This is a simple backend implementation for the Affiliate Hub project using Node.js, Express, and SQLite. It's designed to be easy to set up and run with minimal configuration.

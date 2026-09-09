@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# workerd test bundles
+api/.worker-build-*
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# The prototype committed backend/.env containing JWT_SECRET=your-secret-key-here.
+# Never commit real values; copy .env.example instead.
+.env
+.env.*
+!.env.example
+
+# Local Cloudflare/Miniflare state and build output
+.wrangler/
+.worker-build-*/
+dist/
+
+# Local development secrets (wrangler dev reads api/.dev.vars)
+.dev.vars

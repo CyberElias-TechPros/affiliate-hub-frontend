@@ -2,6 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ArrowLeft, UserPlus, Search, Link2, Share2, Wallet, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Seo } from "@/components/seo/Seo";
 
 const steps = [
   {
@@ -12,13 +13,13 @@ const steps = [
       "Enter your email and create a password",
       "Complete your profile with basic information",
       "Choose your preferred niches (tech, health, finance, etc.)",
-      "Link your WhatsApp for instant sale notifications",
+      "Add your WhatsApp number so merchants can reach you about campaigns",
     ],
   },
   {
     icon: Search,
     title: "Browse Products",
-    description: "Explore our marketplace of 500+ high-converting products across multiple categories.",
+    description: "Browse the marketplace and filter by category, commission rate and popularity to find products that fit your audience.",
     details: [
       "Filter by commission rate, category, or popularity",
       "See detailed product information and conversion rates",
@@ -75,7 +76,7 @@ const steps = [
 const faqs = [
   {
     question: "How much can I earn?",
-    answer: "Your earnings depend on your audience size and engagement. Our top affiliates earn ₦500,000+ monthly, while beginners typically start with ₦20,000-₦50,000 in their first month.",
+    answer: "Your earnings depend on your audience size, how well the product fits that audience, and the commission rate the merchant has set. Every product page shows its commission rate, so you can see what a conversion is worth before you promote it. Earnings accrue when a referred purchase completes, and they appear in your wallet immediately.",
   },
   {
     question: "Do I need a website?",
@@ -93,7 +94,12 @@ const faqs = [
 
 const HowItWorksPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="How Affiliate Hub works"
+        description="Sign up, choose products, share tracked links and withdraw your commission. A step-by-step guide to earning with Affiliate Hub."
+        path="/how-it-works"
+      />
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4">
@@ -201,7 +207,7 @@ const HowItWorksPage = () => {
             Ready to Get Started?
           </h2>
           <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-            Join 15,000+ affiliates already earning with Affiliate Hub. Sign up is free!
+            Start promoting products you already use. Signing up is free, and bank withdrawals cost nothing.
           </p>
           <Link to="/auth">
             <Button size="lg" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90">
@@ -217,7 +223,7 @@ const HowItWorksPage = () => {
           <p>© {new Date().getFullYear()} Affiliate Hub. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 

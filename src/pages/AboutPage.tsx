@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Users, Target, Heart, Award, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContentAd } from "@/components/common/AdBanner";
+import { Seo } from "@/components/seo/Seo";
 
 const values = [
   {
@@ -36,7 +37,12 @@ const team = [
 
 const AboutPage = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="About Affiliate Hub"
+        description="How Affiliate Hub works for Nigerian creators and the merchants they promote."
+        path="/about"
+      />
       {/* Header */}
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto px-4">
@@ -64,8 +70,8 @@ const AboutPage = () => {
               About Affiliate Hub
             </h1>
             <p className="text-lg text-muted-foreground">
-              We're on a mission to empower Nigerians to earn passive income through affiliate marketing. 
-              Founded in 2022, we've grown to become Nigeria's most trusted affiliate platform.
+              We're on a mission to empower Nigerians to earn passive income through affiliate
+              marketing, with transparent commission rates and a payout process affiliates can audit.
             </p>
           </div>
         </div>
@@ -89,28 +95,25 @@ const AboutPage = () => {
                     unreasonably high payout thresholds.
                   </p>
                   <p>
-                    Today, we've paid out over ₦50 million to affiliates across Nigeria, proving that 
-                    local solutions can compete with global platforms—and win.
+                    Affiliate Hub is built for the Nigerian market first: local payment methods, naira
+                    balances, and a payout process that does not route creators through overseas
+                    platforms before the money reaches them.
                   </p>
                 </div>
               </div>
               <div className="bg-card rounded-2xl p-8 shadow-card">
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">2022</div>
-                    <div className="text-muted-foreground">Founded in Lagos</div>
+                    <div className="text-3xl font-bold text-primary">Up to 50%</div>
+                    <div className="text-muted-foreground">Commission on eligible products</div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">15K+</div>
-                    <div className="text-muted-foreground">Active affiliates</div>
+                    <div className="text-3xl font-bold text-primary">3</div>
+                    <div className="text-muted-foreground">Payout methods: bank, PayPal, USDT</div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">₦50M+</div>
-                    <div className="text-muted-foreground">Paid to affiliates</div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-primary">500+</div>
-                    <div className="text-muted-foreground">Products listed</div>
+                    <div className="text-3xl font-bold text-primary">Free</div>
+                    <div className="text-muted-foreground">To join, and free bank withdrawals</div>
                   </div>
                 </div>
               </div>
@@ -206,7 +209,7 @@ const AboutPage = () => {
           </div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 

@@ -1,149 +1,201 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUpRight, ArrowDownLeft, Filter, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { BalanceCard } from "@/components/ui/BalanceCard";
 import { StatusTag } from "@/components/ui/StatusTag";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { ContentAd, StickyFooterAd } from "@/components/common/AdBanner";
+import { ContentAd } from "@/components/common/AdBanner";
+import { DataErrorState, EmptyState } from "@/components/routing/ProtectedRoute";
+import { Seo } from "@/components/seo/Seo";
+import { WalletAPI } from "@/lib/api";
+import { formatMoney } from "@shared/api-contract";
+import type { Transaction } from "@shared/api-contract";
 
-const transactions = [
-  {
-    id: "1",
-    type: "credit" as const,
-    title: "Forex Course Sale",
-    amount: 67500,
-    date: "Dec 26, 2024",
-    status: "completed" as const,
-  },
-  {
-    id: "2",
-    type: "debit" as const,
-    title: "Withdrawal to GTBank",
-    amount: 150000,
-    date: "Dec 25, 2024",
-    status: "completed" as const,
-  },
-  {
-    id: "3",
-    type: "credit" as const,
-    title: "Fitness Watch Sale",
-    amount: 11250,
-    date: "Dec 24, 2024",
-    status: "pending" as const,
-  },
-  {
-    id: "4",
-    type: "credit" as const,
-    title: "Masterclass Sale",
-    amount: 37500,
-    date: "Dec 23, 2024",
-    status: "completed" as const,
-  },
-  {
-    id: "5",
-    type: "debit" as const,
-    title: "Withdrawal to USDT",
-    amount: 50000,
-    date: "Dec 22, 2024",
-    status: "processing" as const,
-  },
-];
-
+/**
+ * Wallet.
+ *
+ * Balances and transactions both come from the API. The prototype hardcoded a
+ * ₦472,500 balance and five fabricated transactions with December 2024 dates,
+ * so the screen looked complete but was entirely fictional.
+ *
+ * Available and pending are shown separately: a commission that a merchant has
+ * not yet approved is not spendable, and conflating the two is how an
+ * affiliate ends up requesting a withdrawal that then fails.
+ */
 const WalletPage = () => {
   const navigate = useNavigate();
-  const [activeCard, setActiveCard] = React.useState(0);
+  const [page, setPage] = React.useState(1);
+
+  const summary = useQuery({ queryKey: ["wallet", "summary"], queryFn: () => WalletAPI.summary() });
+  const transactions = useQuery({
+    queryKey: ["wallet", "transactions", page],
+    queryFn: () => WalletAPI.transactions({ page, pageSize: 10 }),
+  });
+
+  const items: Transaction[] = transactions.data?.items ?? [];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-2 gradient-hero">
-        <h1 className="text-2xl font-bold font-display text-foreground mb-6">Wallet</h1>
+    <div className="min-h-screen bg-background pb-28">
+      <Seo title="Wallet" description="Your balances and transaction history." path="/wallet" robots="noindex, nofollow" />
 
-        {/* Balance Cards Carousel */}
-        <div className="relative">
-          <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-4 scrollbar-hide">
-            <div className="min-w-full snap-center" onClick={() => setActiveCard(0)}>
-              <BalanceCard currency="NGN" balance={472500} trend={12} isActive={activeCard === 0} />
-            </div>
-            <div className="min-w-full snap-center" onClick={() => setActiveCard(1)}>
-              <BalanceCard currency="USD" balance={315} trend={8} isActive={activeCard === 1} />
-            </div>
-          </div>
-          <div className="flex justify-center gap-2 mt-2">
-            <div className={`w-2 h-2 rounded-full transition-all ${activeCard === 0 ? "w-6 bg-primary" : "bg-muted"}`} />
-            <div className={`w-2 h-2 rounded-full transition-all ${activeCard === 1 ? "w-6 bg-primary" : "bg-muted"}`} />
-          </div>
-        </div>
-      </div>
+      <header className="gradient-hero px-4 pb-2 pt-6">
+        <h1 className="font-display mb-6 text-2xl font-bold text-foreground">Wallet</h1>
 
-      {/* Action Button */}
-      <div className="px-4 py-4">
-        <Button
-          onClick={() => navigate("/withdraw")}
-          className="w-full h-14 gradient-primary text-primary-foreground font-semibold rounded-xl shadow-glow text-lg"
-        >
-          <ArrowUpRight className="h-5 w-5 mr-2" />
-          Withdraw Funds
-        </Button>
-      </div>
-
-      {/* Transactions */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-foreground">Transactions</h2>
-          <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <Filter className="h-4 w-4" />
-            Filter
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {transactions.map((tx, index) => (
-            <div
-              key={tx.id}
-              className="flex items-center gap-3 bg-card rounded-xl p-4 shadow-card animate-fade-up cursor-pointer hover:shadow-lg transition-all"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                tx.type === "credit"
-                  ? "bg-success/10 text-success"
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {tx.type === "credit" ? (
-                  <ArrowDownLeft className="h-5 w-5" />
-                ) : (
-                  <ArrowUpRight className="h-5 w-5" />
-                )}
+        {summary.isLoading ? (
+          <Skeleton className="h-32 w-full rounded-2xl" />
+        ) : summary.isError ? (
+          <DataErrorState
+            message="We could not load your balances."
+            onRetry={() => void summary.refetch()}
+          />
+        ) : (
+          summary.data && (
+            <div className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">
+              <div className="min-w-full snap-center">
+                <BalanceCard
+                  label="Available"
+                  currency={summary.data.available.currency}
+                  balance={summary.data.available.amountMinor}
+                  isActive
+                />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">{tx.title}</p>
-                <p className="text-sm text-muted-foreground">{tx.date}</p>
-              </div>
-              <div className="text-right">
-                <p className={`font-bold ${tx.type === "credit" ? "text-success" : "text-foreground"}`}>
-                  {tx.type === "credit" ? "+" : "-"}₦{tx.amount.toLocaleString()}
-                </p>
-                <StatusTag status={tx.status} />
+              <div className="min-w-full snap-center">
+                <BalanceCard
+                  label="Pending approval"
+                  currency={summary.data.pending.currency}
+                  balance={summary.data.pending.amountMinor}
+                />
               </div>
             </div>
-          ))}
+          )
+        )}
+
+        {summary.data && (
+          <p className="pb-4 text-sm text-muted-foreground">
+            Lifetime earnings: <span className="font-medium text-foreground">{formatMoney(summary.data.lifetimeEarnings)}</span>
+            {" · "}
+            ≈ {formatMoney(summary.data.availableSecondary)} at {summary.data.fxRate.rateScaled / 1_000_000}{" "}
+            {summary.data.fxRate.base}/{summary.data.fxRate.quote}
+          </p>
+        )}
+      </header>
+
+      <main id="main-content" className="px-4">
+        <div className="py-4">
+          <Button
+            onClick={() => navigate("/withdraw")}
+            disabled={summary.isError || (summary.data?.available.amountMinor ?? 0) <= 0}
+            className="gradient-primary h-14 w-full rounded-xl text-lg font-semibold text-primary-foreground shadow-glow"
+          >
+            <ArrowUpRight className="mr-2 h-5 w-5" />
+            Withdraw funds
+          </Button>
         </div>
 
-        <button className="w-full mt-4 py-3 text-primary font-medium flex items-center justify-center">
-          View all transactions <ChevronRight className="h-4 w-4 ml-1" />
-        </button>
-      </div>
+        <section className="py-4" aria-labelledby="transactions-heading">
+          <h2 id="transactions-heading" className="mb-4 font-semibold text-foreground">
+            Transactions
+          </h2>
 
-      {/* Ad Section */}
-      <div className="px-4 py-4">
-        <div className="flex justify-center">
+          {transactions.isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-20 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : transactions.isError ? (
+            <DataErrorState
+              message="We could not load your transactions."
+              onRetry={() => void transactions.refetch()}
+            />
+          ) : items.length === 0 ? (
+            <EmptyState
+              title="No transactions yet"
+              description="Your commissions and withdrawals will appear here as soon as you make your first sale."
+              action={
+                <Button size="sm" variant="outline" onClick={() => navigate("/marketplace")}>
+                  Find something to promote
+                </Button>
+              }
+            />
+          ) : (
+            <>
+              <ul className="space-y-3">
+                {items.map((tx) => {
+                  const isCredit = tx.amount.amountMinor > 0;
+                  return (
+                    <li
+                      key={tx.id}
+                      className="bg-card shadow-card flex items-center gap-3 rounded-xl p-4 transition-all hover:shadow-lg"
+                    >
+                      <span
+                        className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${
+                          isCredit ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {isCredit ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+                      </span>
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-foreground">{tx.description}</span>
+                        <span className="block text-sm text-muted-foreground">
+                          {new Date(tx.createdAt).toLocaleDateString("en-NG", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </span>
+
+                      <span className="text-right">
+                        <span
+                          className={`block font-bold ${isCredit ? "text-success" : "text-foreground"}`}
+                        >
+                          {isCredit ? "+" : "−"}
+                          {formatMoney({
+                            amountMinor: Math.abs(tx.amount.amountMinor),
+                            currency: tx.amount.currency,
+                          })}
+                        </span>
+                        <StatusTag status={tx.status} />
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {transactions.data && transactions.data.totalPages > 1 && (
+                <nav className="flex items-center justify-center gap-3 py-6" aria-label="Transaction pages">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                    Newer
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {transactions.data.page} of {transactions.data.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= transactions.data.totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Older
+                  </Button>
+                </nav>
+              )}
+            </>
+          )}
+        </section>
+
+        <div className="flex justify-center py-4">
           <ContentAd />
         </div>
-      </div>
+      </main>
 
       <BottomNav />
-      <StickyFooterAd />
     </div>
   );
 };

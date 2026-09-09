@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, MessageCircle, Upload, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Seo } from "@/components/seo/Seo";
 
 const faqs = [
   {
@@ -11,7 +12,7 @@ const faqs = [
   },
   {
     question: "What is the minimum withdrawal?",
-    answer: "The minimum withdrawal amount is ₦5,000 for bank transfers and $10 for PayPal/USDT withdrawals.",
+    answer: "The minimum withdrawal amount is ₦5,000 for bank transfers and $50 for PayPal and USDT withdrawals. Fees and minimums for each method are shown on the withdrawal page before you confirm.",
   },
   {
     question: "How do commissions work?",
@@ -42,7 +43,12 @@ const HelpPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
+      <Seo
+        title="Help centre"
+        description="Answers about payouts, minimum withdrawals, commission tracking and your Affiliate Hub account."
+        path="/help"
+      />
       {/* Header */}
       <div className="sticky top-0 z-40 bg-background border-b border-border">
         <div className="flex items-center gap-3 px-4 py-4">
@@ -146,7 +152,7 @@ const HelpPage = () => {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 
