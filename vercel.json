@@ -9,7 +9,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://affiliate-hub-api.REPLACE_ME.workers.dev/api/:path*"
+      "destination": "https://affiliate-hub.cyber-e54.workers.dev/api/:path*"
     },
     {
       "source": "/((?!assets/|api/).*)",
