@@ -1,0 +1,5 @@
+# Vercel builds ONLY the Vite SPA. /api is served by the Cloudflare
+# Worker (see rewrites in vercel.json). Excluding api/ stops Vercel
+# from turning each worker source file into a serverless function
+# (Hobby limit: 12 per deployment).
+api/
