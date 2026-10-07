@@ -4,8 +4,6 @@
   "buildCommand": "npm run build:vercel",
   "outputDirectory": "dist",
   "installCommand": "npm ci",
-
-  "_comment_routing": "The SPA owns every path except /api, which is proxied to the Cloudflare Worker. Keeping the API on the same origin means the browser never makes a cross-origin call, so there is no CORS preflight and no cookie/credential edge cases. Set API_WORKER_URL to the Worker's https URL in Vercel project settings.",
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -54,8 +52,6 @@
       ]
     }
   ],
-
-  "_comment_csp": "script-src keeps 'unsafe-inline' because the built index.html inlines nothing but the Seo component injects JSON-LD, and Google's ad script requires it. If AdSense is never enabled, tighten script-src by removing both third-party origins. frame-ancestors 'none' blocks clickjacking; the Worker sets its own copy for API responses.",
 
   "env": {
     "VITE_SITE_URL": "https://affiliate-hub.vercel.app"
