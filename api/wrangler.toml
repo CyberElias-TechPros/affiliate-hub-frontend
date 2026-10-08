@@ -12,13 +12,13 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "affiliate-hub-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "c089dd9b-c09f-406f-a32b-b7a711e059bd"
 migrations_dir = "migrations"
 
 # --- KV: public catalogue + FX cache ---------------------------------------
 [[kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "0a8aaec233c34bf09735a68f0a0d9b14"
 
 # --- R2: promo artwork and avatar uploads ----------------------------------
 [[r2_buckets]]
