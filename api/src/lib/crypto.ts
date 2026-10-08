@@ -3,7 +3,7 @@
  * crypto surface available in Cloudflare Workers.
  *
  * Notable choices:
- *  - Passwords use PBKDF2-HMAC-SHA256 at 210,000 iterations. `bcrypt` (used by
+ *  - Passwords use PBKDF2-HMAC-SHA256 at 100,000 iterations (Workers CPU ceiling). `bcrypt` (used by
  *    the original Express prototype) has no Workers-compatible implementation
  *    and relies on native bindings.
  *  - Access/refresh tokens are HS256 JWTs signed with separate secrets, so
@@ -13,7 +13,7 @@
  *    deduplicated without retaining personal data.
  */
 
-const PBKDF2_ITERATIONS = 210_000;
+const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_KEY_LENGTH_BITS = 256;
 
 const encoder = new TextEncoder();

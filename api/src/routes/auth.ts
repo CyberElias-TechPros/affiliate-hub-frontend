@@ -245,4 +245,4 @@ export async function readJson(c: Ctx): Promise<unknown> {
  * Regenerating one per request would cost 210k PBKDF2 rounds on every miss.
  */
 const DUMMY_HASH =
-  'pbkdf2$sha256$210000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+  'pbkdf2$sha256$100000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
