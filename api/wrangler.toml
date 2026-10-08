@@ -11,8 +11,8 @@ compatibility_flags = ["nodejs_compat"]
 # --- D1: all relational data ------------------------------------------------
 [[d1_databases]]
 binding = "DB"
-database_name = "affiliate-hub-db"
-database_id = "c089dd9b-c09f-406f-a32b-b7a711e059bd"
+database_name = "affiliate-hub-db-v2"
+database_id = "6c8e50e3-a751-49b9-8cef-b994b87e573c"
 migrations_dir = "migrations"
 
 # --- KV: public catalogue + FX cache ---------------------------------------
