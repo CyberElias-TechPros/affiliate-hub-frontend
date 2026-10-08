@@ -46,9 +46,12 @@ max_batch_timeout = 5
 max_retries = 5
 
 # --- Cron: nightly maintenance --------------------------------------------
-# 03:15 UTC daily: reconcile wallets, expire stale withdrawals, prune sessions.
-[triggers]
-crons = ["15 3 * * *"]
+# DISABLED 2026-10-08: the Cyber account is at the Workers Free limit of 5
+# cron triggers per account, so attaching this schedule fails the deploy.
+# Re-enable (or move to Workers Paid / an external scheduler) to restore
+# nightly wallet reconciliation, stale-withdrawal expiry and session pruning.
+# [triggers]
+# crons = ["15 3 * * *"]
 
 [vars]
 # Non-secret configuration only. Secrets are set with
