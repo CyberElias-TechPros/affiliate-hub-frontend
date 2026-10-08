@@ -56,8 +56,8 @@ max_retries = 5
 [vars]
 # Non-secret configuration only. Secrets are set with
 # `wrangler secret put <NAME>` and must never appear in this file.
-ALLOWED_ORIGINS = "http://localhost:8080,https://affiliate-hub.vercel.app"
-PUBLIC_SITE_URL = "https://affiliate-hub.vercel.app"
+ALLOWED_ORIGINS = "http://localhost:8080,https://affiliate-hub.vercel.app,https://affiliate-hub-cyan.vercel.app"
+PUBLIC_SITE_URL = "https://affiliate-hub-cyan.vercel.app"
 ACCESS_TOKEN_TTL_SECONDS = "900"
 REFRESH_TOKEN_TTL_SECONDS = "2592000"
 CATALOGUE_CACHE_TTL_SECONDS = "120"
